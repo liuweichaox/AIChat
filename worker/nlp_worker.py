@@ -1,39 +1,25 @@
-import httpx
+from zhipuai import ZhipuAI
 
 BIGMODEL_API_KEY = "fe28433d565d40a5a1806ab43719e504.HHwmOUiDA4XPCDkk"
-BASE_URL = "https://bigmodel.cn/dev/api/normal-model/glm-4"
-
+client = ZhipuAI(api_key=BIGMODEL_API_KEY)
 
 async def full_reply(user_text: str) -> str:
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {BIGMODEL_API_KEY}"
-    }
-    payload = {
-        "inputs": user_text,
-        "parameters": {"temperature": 0.7, "max_tokens": 512}
-    }
-    async with httpx.AsyncClient(timeout=60) as client:
-        resp = await client.post(BASE_URL + "/generate", json=payload, headers=headers)
-        resp.raise_for_status()
-        data = resp.json()
-        return data.get("data", {}).get("text", "")
+    response = client.chat.completions.create(
+    model="glm-4-plus",  # 请填写您要调用的模型名称
+    messages=[
+        {"role": "user", "content": user_text}
+    ],
+    )
+    return response
 
 
 async def stream_reply(user_text: str):
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {BIGMODEL_API_KEY}"
-    }
-    payload = {
-        "inputs": user_text,
-        "parameters": {"temperature": 0.7},
-        "stream": True
-    }
-    async with httpx.AsyncClient(timeout=None) as client:
-        async with client.stream("POST", BASE_URL + "/generate_stream", json=payload, headers=headers) as resp:
-            resp.raise_for_status()
-            async for line in resp.aiter_lines():
-                if line:
-                    chunk = httpx.Response(200, content=line).json()
-                    yield chunk.get("data", {}).get("text", "")
+    response = client.chat.completions.create(
+    model="glm-4-plus",  # 请填写您要调用的模型名称
+    messages=[
+        {"role": "user", "content": user_text},
+    ],
+    stream=True,
+    )
+    for chunk in response:
+        yield chunk.choices[0].delta
