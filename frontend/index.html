@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8" />
+  <title>语音助手</title>
+  <link rel="stylesheet" href="/static/style.css" />
+  <script type="module" src="https://unpkg.com/vue@3/dist/vue.esm-browser.js"></script>
+</head>
+<body>
+  <div id="app">
+    <h1>💬 实时语音对话</h1>
+
+    <div class="reply">
+      <div class="bot">
+        <span v-for="token in reply" :key="token.id" class="token">{{ token.text }}</span>
+        <span class="cursor" v-if="recording">▋</span>
+      </div>
+    </div>
+
+    <button @click="toggleMic" :disabled="loading">
+      {{ recording ? '⏹ 停止' : '🎙 开始说话' }}
+    </button>
+
+    <div v-if="error" class="error">⚠️ {{ error }}</div>
+  </div>
+
+  <script type="module">
+    import { createApp, ref } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
+
+    createApp({
+      setup() {
+        const reply = ref([])
+        const recording = ref(false)
+        const loading = ref(false)
+        const error = ref(null)
+
+        let pc = null
+        let ws = null
+
+        async function toggleMic() {
+          if (recording.value) {
+            stopCall()
+          } else {
+            await startCall()
+          }
+        }
+
+        async function startCall() {
+          try {
+            reply.value = []
+            recording.value = true
+            pc = new RTCPeerConnection({
+              iceServers: [
+                { urls: 'stun:stun.l.google.com:19302' }
+              ]
+            })
+
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+            stream.getTracks().forEach(track => pc.addTrack(track, stream))
+
+            ws = new WebSocket("ws://" + location.host + "/ws/signal")
+
+            ws.onmessage = async (event) => {
+              const msg = JSON.parse(event.data)
+              if (msg.type === 'answer') {
+                await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: msg.sdp }))
+              } else if (msg.type === 'text') {
+                reply.value.push({ id: reply.value.length, text: msg.data })
+              } else if (msg.type === 'candidate') {
+                pc.addIceCandidate(new RTCIceCandidate(msg.candidate))
+              }
+            }
+
+            const offer = await pc.createOffer()
+            await pc.setLocalDescription(offer)
+            ws.onopen = () => {
+              ws.send(JSON.stringify({ type: 'offer', sdp: offer.sdp }))
+            }
+
+          } catch (err) {
+            error.value = '启动失败: ' + err.message
+            recording.value = false
+          }
+        }
+
+        function stopCall() {
+          if (ws) ws.close()
+          if (pc) pc.close()
+          recording.value = false
+        }
+
+        return { reply, recording, loading, error, toggleMic }
+      }
+    }).mount('#app')
+  </script>
+</body>
+</html>

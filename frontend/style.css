@@ -1,0 +1,105 @@
+  * {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+    background-color: #f4f4f4;
+    color: #333;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+  }
+
+  #app {
+    width: 100%;
+    max-width: 640px;
+    background: white;
+    padding: 2rem;
+    border-radius: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.05);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  h1 {
+    font-size: 1.6rem;
+    margin-bottom: 1.5rem;
+    color: #444;
+  }
+
+  .reply {
+    width: 100%;
+    padding: 1rem;
+    background: #f0f2f5;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    font-size: 1.1rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    min-height: 120px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-start;
+  }
+
+  .token {
+    display: inline;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+
+  .cursor {
+    display: inline-block;
+    width: 6px;
+    height: 1.2em;
+    background-color: #333;
+    animation: blink 1s step-end infinite;
+    margin-left: 2px;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 0; }
+    50% { opacity: 1; }
+  }
+
+  button {
+    padding: 0.8rem 1.6rem;
+    font-size: 1rem;
+    background-color: #10a37f;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+    margin-bottom: 1rem;
+  }
+
+  button:hover {
+    background-color: #0e8a6d;
+  }
+
+  button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+  }
+
+  .error {
+    color: #c0392b;
+    margin-top: 0.5rem;
+  }
+
+  @media (max-width: 768px) {
+    #app {
+      padding: 1.5rem;
+    }
+
+    .reply {
+      font-size: 1rem;
+    }
+  }

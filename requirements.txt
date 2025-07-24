@@ -1,0 +1,8 @@
+fastapi
+openai-whisper
+chattts
+torch
+torchaudio
+webrtcvad
+aiortc
+uvicorn
