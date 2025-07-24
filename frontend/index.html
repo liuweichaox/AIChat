@@ -98,16 +98,6 @@
           }
           source.connect(processor)
           processor.connect(audioCtx.destination)
-          processor.onaudioprocess = (e) => {
-            if (!recording.value || !listening.value) return
-            const input = e.inputBuffer.getChannelData(0)
-            const pcm = new Int16Array(input.length)
-            for (let i = 0; i < input.length; i++) {
-              const s = Math.max(-1, Math.min(1, input[i]))
-              pcm[i] = s < 0 ? s * 0x8000 : s * 0x7fff
-            }
-            ws.send(pcm.buffer)
-          }
         }
 
         function stopCall() {
