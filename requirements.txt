@@ -2,6 +2,7 @@ fastapi
 openai-whisper
 zhipuai
 chattts
+edge-tts
 torch
 torchaudio
 webrtcvad
