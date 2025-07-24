@@ -7,10 +7,11 @@ async def full_reply(user_text: str) -> str:
     response = client.chat.completions.create(
     model="glm-4-plus",  # 请填写您要调用的模型名称
     messages=[
+        {"role": "user", "content": "用中文和我对话"},
         {"role": "user", "content": user_text}
     ],
     )
-    return response
+    return response.choices[0].message.content
 
 
 async def stream_reply(user_text: str):
