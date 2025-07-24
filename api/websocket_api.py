@@ -1,13 +1,12 @@
 from fastapi import APIRouter, WebSocket
 from aiortc import RTCPeerConnection, RTCSessionDescription, RTCIceCandidate
-from aiortc.contrib.media import MediaBlackhole
-import json
 import asyncio
+import json
 import webrtcvad
-import numpy as np
 
 from worker.asr_worker import transcribe
-from worker.nlp_worker import stream_reply
+from worker.nlp_worker import full_reply
+from worker.tts_worker import synthesize
 
 router = APIRouter()
 
@@ -16,38 +15,53 @@ async def signal_ws(websocket: WebSocket):
     await websocket.accept()
 
     pc = RTCPeerConnection()
-    media_sink = MediaBlackhole()
 
     @pc.on("track")
     def on_track(track):
         if track.kind == "audio":
             asyncio.create_task(process_audio(track, websocket))
 
+    @pc.on("icecandidate")
+    async def on_icecandidate(candidate):
+        if candidate:
+            await websocket.send_text(json.dumps({
+                "type": "candidate",
+                "candidate": {
+                    "candidate": candidate.candidate,
+                    "sdpMid": candidate.sdpMid,
+                    "sdpMLineIndex": candidate.sdpMLineIndex,
+                },
+            }))
+
     try:
         while True:
-            message = await websocket.receive_text()
-            data = json.loads(message)
+            data = json.loads(await websocket.receive_text())
+            msg_type = data.get("type")
 
-            if data["type"] == "offer":
-                await pc.setRemoteDescription(RTCSessionDescription(sdp=data["sdp"], type="offer"))
+            if msg_type == "offer":
+                await pc.setRemoteDescription(
+                    RTCSessionDescription(sdp=data["sdp"], type="offer")
+                )
                 answer = await pc.createAnswer()
                 await pc.setLocalDescription(answer)
                 await websocket.send_text(json.dumps({
                     "type": "answer",
-                    "sdp": pc.localDescription.sdp
+                    "sdp": pc.localDescription.sdp,
                 }))
 
-            elif data["type"] == "candidate":
-                candidate = data["candidate"]
+            elif msg_type == "candidate":
+                cand = data["candidate"]
                 ice = RTCIceCandidate(
-                    sdpMid=candidate["sdpMid"],
-                    sdpMLineIndex=candidate["sdpMLineIndex"],
-                    candidate=candidate["candidate"]
+                    sdpMid=cand["sdpMid"],
+                    sdpMLineIndex=cand["sdpMLineIndex"],
+                    candidate=cand["candidate"],
                 )
                 await pc.addIceCandidate(ice)
 
     except Exception as e:
         print("WebSocket closed or error:", str(e))
+    finally:
+        await pc.close()
 
 
 async def process_audio(track, websocket):
@@ -80,8 +94,10 @@ async def process_audio(track, websocket):
 
             if silence_counter >= SILENCE_THRESHOLD and audio_buffer:
                 transcript = await transcribe(audio_buffer)
-                async for chunk in stream_reply(transcript):
-                    await websocket.send_text(json.dumps({"type": "text", "data": chunk}))
+                reply_text = await full_reply(transcript)
+                await websocket.send_text(json.dumps({"type": "text", "data": reply_text}))
+                audio_bytes = await synthesize(reply_text)
+                await websocket.send_text(json.dumps({"type": "audio", "data": audio_bytes.hex()}))
                 audio_buffer = b""
                 silence_counter = 0
 
