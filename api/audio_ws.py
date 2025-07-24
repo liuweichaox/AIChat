@@ -22,6 +22,7 @@ async def audio_ws(websocket: WebSocket):
     SILENCE_THRESHOLD = int(800 / FRAME_DURATION_MS)
     SAMPLE_RATE = 16000
     FRAME_SIZE = int(SAMPLE_RATE * FRAME_DURATION_MS / 1000) * 2
+    speech_started = False
 
     try:
         while True:
@@ -39,12 +40,13 @@ async def audio_ws(websocket: WebSocket):
                 if is_speech:
                     silence_counter = 0
                     audio_buffer += seg
+                    speech_started = True
                 else:
-                    silence_counter += 1
-                    if audio_buffer:
+                    if speech_started:
+                        silence_counter += 1
                         audio_buffer += seg
 
-                if silence_counter >= SILENCE_THRESHOLD and audio_buffer:
+                if speech_started and silence_counter >= SILENCE_THRESHOLD and audio_buffer:
                     transcript = await transcribe(audio_buffer)
                     await websocket.send_text(
                         json.dumps({"type": "transcript", "data": transcript})
@@ -59,6 +61,7 @@ async def audio_ws(websocket: WebSocket):
                     )
                     audio_buffer = b""
                     silence_counter = 0
+                    speech_started = False
 
     except Exception as e:
         print("WebSocket error:", e)
