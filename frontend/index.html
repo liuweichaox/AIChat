@@ -11,9 +11,10 @@
     <h1>💬 实时语音对话</h1>
 
     <div class="reply">
+      <div class="user" v-if="userText">🧑‍🗣️ {{ userText }}</div>
       <div class="bot">
         <span v-for="token in reply" :key="token.id" class="token">{{ token.text }}</span>
-        <span class="cursor" v-if="recording">▋</span>
+        <span class="cursor" v-if="listening || typing">▋</span>
       </div>
     </div>
 
@@ -30,7 +31,10 @@
     createApp({
       setup() {
         const reply = ref([])
+        const userText = ref('')
         const recording = ref(false)
+        const listening = ref(false)
+        const typing = ref(false)
         const error = ref(null)
         let ws
         let audioCtx
@@ -40,20 +44,44 @@
           const bytes = new Uint8Array(hex.match(/.{1,2}/g).map(b => parseInt(b, 16)))
           const blob = new Blob([bytes], { type: 'audio/wav' })
           const url = URL.createObjectURL(blob)
-          new Audio(url).play()
+          const audio = new Audio(url)
+          audio.onended = () => {
+            listening.value = true
+            userText.value = ''
+          }
+          audio.play()
+        }
+
+        function typeReply(text) {
+          reply.value = []
+          typing.value = true
+          let i = 0
+          const timer = setInterval(() => {
+            reply.value.push({ id: reply.value.length, text: text[i] })
+            i++
+            if (i >= text.length) {
+              clearInterval(timer)
+              typing.value = false
+            }
+          }, 50)
         }
 
         async function startCall() {
           reply.value = []
+          userText.value = ''
           recording.value = true
+          listening.value = true
           error.value = null
 
           ws = new WebSocket(`ws://${location.host}/ws/audio`)
           ws.binaryType = 'arraybuffer'
           ws.onmessage = (event) => {
             const msg = JSON.parse(event.data)
-            if (msg.type === 'text') {
-              reply.value.push({ id: reply.value.length, text: msg.data })
+            if (msg.type === 'transcript') {
+              userText.value = msg.data
+              listening.value = false
+            } else if (msg.type === 'text') {
+              typeReply(msg.data)
             } else if (msg.type === 'audio') {
               playAudio(msg.data)
             }
@@ -61,20 +89,15 @@
 
           stream = await navigator.mediaDevices.getUserMedia({ audio: true })
           audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 })
+          await audioCtx.audioWorklet.addModule('/static/recorderWorklet.js')
           const source = audioCtx.createMediaStreamSource(stream)
-          processor = audioCtx.createScriptProcessor(4096, 1, 1)
+          processor = new AudioWorkletNode(audioCtx, 'recorder')
+          processor.port.onmessage = (e) => {
+            if (!recording.value || !listening.value) return
+            ws.send(e.data.buffer)
+          }
           source.connect(processor)
           processor.connect(audioCtx.destination)
-          processor.onaudioprocess = (e) => {
-            if (!recording.value) return
-            const input = e.inputBuffer.getChannelData(0)
-            const pcm = new Int16Array(input.length)
-            for (let i = 0; i < input.length; i++) {
-              const s = Math.max(-1, Math.min(1, input[i]))
-              pcm[i] = s < 0 ? s * 0x8000 : s * 0x7fff
-            }
-            ws.send(pcm.buffer)
-          }
         }
 
         function stopCall() {
@@ -98,7 +121,7 @@
           }
         }
 
-        return { reply, recording, error, toggleMic }
+        return { reply, userText, recording, listening, typing, error, toggleMic }
       }
     }).mount('#app')
   </script>

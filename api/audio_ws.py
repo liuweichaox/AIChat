@@ -44,10 +44,17 @@ async def audio_ws(websocket: WebSocket):
 
             if silence_counter >= SILENCE_THRESHOLD and audio_buffer:
                 transcript = await transcribe(audio_buffer)
+                await websocket.send_text(
+                    json.dumps({"type": "transcript", "data": transcript})
+                )
                 reply_text = await full_reply(transcript)
-                await websocket.send_text(json.dumps({"type": "text", "data": reply_text}))
+                await websocket.send_text(
+                    json.dumps({"type": "text", "data": reply_text})
+                )
                 audio_bytes = await synthesize(reply_text)
-                await websocket.send_text(json.dumps({"type": "audio", "data": audio_bytes.hex()}))
+                await websocket.send_text(
+                    json.dumps({"type": "audio", "data": audio_bytes.hex()})
+                )
                 audio_buffer = b""
                 silence_counter = 0
 
