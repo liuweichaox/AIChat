@@ -10,11 +10,13 @@
   <div id="app">
     <h1>您好，我在</h1>
 
-    <div class="reply">
-      <div class="user" v-if="userText">🧑‍🗣️ {{ userText }}</div>
-      <div class="bot">
-        <span v-for="token in reply" :key="token.id" class="token">{{ token.text }}</span>
-        <span class="cursor" v-if="listening || typing">▋</span>
+    <div class="history">
+      <div v-for="(msg, idx) in history" :key="idx" :class="['message', msg.role]">
+        {{ msg.text }}
+      </div>
+      <div class="message user" v-if="userText">{{ userText }}</div>
+      <div class="message bot" v-if="reply.length">
+        <span v-for="token in reply" :key="token.id" class="token">{{ token.text }}</span><span class="cursor" v-if="listening || typing">▋</span>
       </div>
     </div>
 
@@ -31,6 +33,7 @@
     createApp({
       setup() {
         const reply = ref([])
+        const history = ref([])
         const userText = ref('')
         const recording = ref(false)
         const listening = ref(false)
@@ -62,12 +65,14 @@
             if (i >= text.length) {
               clearInterval(timer)
               typing.value = false
+              history.value.push({ role: 'bot', text })
             }
           }, 50)
         }
 
         async function startCall() {
           reply.value = []
+          history.value = []
           userText.value = ''
           recording.value = true
           listening.value = true
@@ -80,6 +85,7 @@
             if (msg.type === 'transcript') {
               userText.value = msg.data
               listening.value = false
+              history.value.push({ role: 'user', text: msg.data })
             } else if (msg.type === 'text') {
               typeReply(msg.data)
             } else if (msg.type === 'audio') {
@@ -121,7 +127,7 @@
           }
         }
 
-        return { reply, userText, recording, listening, typing, error, toggleMic }
+        return { reply, history, userText, recording, listening, typing, error, toggleMic }
       }
     }).mount('#app')
   </script>
