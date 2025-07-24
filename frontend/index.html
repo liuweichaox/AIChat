@@ -49,8 +49,10 @@
           const url = URL.createObjectURL(blob)
           const audio = new Audio(url)
           audio.onended = () => {
-            listening.value = true
-            userText.value = ''
+            setTimeout(() => {
+              listening.value = true
+              userText.value = ''
+            }, 1000)
           }
           audio.play()
         }
@@ -100,7 +102,9 @@
           processor = new AudioWorkletNode(audioCtx, 'recorder')
           processor.port.onmessage = (e) => {
             if (!recording.value || !listening.value) return
-            ws.send(e.data.buffer)
+            if (ws.readyState === WebSocket.OPEN) {
+              ws.send(e.data.buffer)
+            }
           }
           source.connect(processor)
           processor.connect(audioCtx.destination)
