@@ -1,17 +1,19 @@
-import uuid
-import ChatTTS
-import torch
-import torchaudio
 import io
-import soundfile as sf 
+import uuid
+import edge_tts
+import torch
+import torchaudio 
 
-chat = ChatTTS.Chat()
-chat.load(compile=False)
+# 可选：设置默认声音（中文女声“小小”）
+VOICE = "zh-CN-XiaoxiaoNeural"
 
 async def synthesize(text: str) -> bytes:
-    texts = [text]
-    wavs = chat.infer(texts)
-    buffer = io.BytesIO()
-    sf.write(buffer, wavs[0], 24000, format='WAV')  # 直接写入 BytesIO
-    buffer.seek(0)
-    return buffer.getvalue()
+    tts = edge_tts.Communicate(text=text, voice=VOICE)
+    output_path = f'assets/{uuid.uuid4()}.wav'
+    await tts.save(output_path)
+    with open(output_path, "rb") as f:
+        audio_bytes = f.read()
+
+    return audio_bytes
+
+   
