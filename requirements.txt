@@ -5,5 +5,4 @@ chattts
 torch
 torchaudio
 webrtcvad
-aiortc
 uvicorn

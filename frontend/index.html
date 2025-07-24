@@ -32,8 +32,10 @@
         const reply = ref([])
         const recording = ref(false)
         const error = ref(null)
-        let pc
         let ws
+        let audioCtx
+        let processor
+        let stream
         function playAudio(hex) {
           const bytes = new Uint8Array(hex.match(/.{1,2}/g).map(b => parseInt(b, 16)))
           const blob = new Blob([bytes], { type: 'audio/wav' })
@@ -46,41 +48,40 @@
           recording.value = true
           error.value = null
 
-          pc = new RTCPeerConnection({
-            iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
-          })
-
-          pc.onicecandidate = (e) => {
-            if (e.candidate) {
-              ws?.send(JSON.stringify({ type: 'candidate', candidate: e.candidate }))
-            }
-          }
-
-          const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-          stream.getTracks().forEach(t => pc.addTrack(t, stream))
-
-          ws = new WebSocket(`ws://${location.host}/ws/signal`)
-          ws.onmessage = async (event) => {
+          ws = new WebSocket(`ws://${location.host}/ws/audio`)
+          ws.binaryType = 'arraybuffer'
+          ws.onmessage = (event) => {
             const msg = JSON.parse(event.data)
-            if (msg.type === 'answer') {
-              await pc.setRemoteDescription(new RTCSessionDescription({ type: 'answer', sdp: msg.sdp }))
-            } else if (msg.type === 'candidate') {
-              await pc.addIceCandidate(new RTCIceCandidate(msg.candidate))
-            } else if (msg.type === 'text') {
+            if (msg.type === 'text') {
               reply.value.push({ id: reply.value.length, text: msg.data })
             } else if (msg.type === 'audio') {
               playAudio(msg.data)
             }
           }
 
-          const offer = await pc.createOffer()
-          await pc.setLocalDescription(offer)
-          ws.onopen = () => ws.send(JSON.stringify({ type: 'offer', sdp: offer.sdp }))
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 })
+          const source = audioCtx.createMediaStreamSource(stream)
+          processor = audioCtx.createScriptProcessor(4096, 1, 1)
+          source.connect(processor)
+          processor.connect(audioCtx.destination)
+          processor.onaudioprocess = (e) => {
+            if (!recording.value) return
+            const input = e.inputBuffer.getChannelData(0)
+            const pcm = new Int16Array(input.length)
+            for (let i = 0; i < input.length; i++) {
+              const s = Math.max(-1, Math.min(1, input[i]))
+              pcm[i] = s < 0 ? s * 0x8000 : s * 0x7fff
+            }
+            ws.send(pcm.buffer)
+          }
         }
 
         function stopCall() {
           ws?.close()
-          pc?.close()
+          processor?.disconnect()
+          stream?.getTracks().forEach(t => t.stop())
+          audioCtx?.close()
           recording.value = false
         }
 
