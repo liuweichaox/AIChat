@@ -1,8 +1,7 @@
-import os
 import uuid
 import ChatTTS
 import torch
-import torchaudio 
+import torchaudio
 import io
 
 chat = ChatTTS.Chat()
@@ -14,6 +13,6 @@ async def synthesize(text: str) -> bytes:
     buffer = io.BytesIO()
     torchaudio.save(buffer, torch.from_numpy(wavs[0]), 24000, format="wav")
     buffer.seek(0)
-    output_path = f'assets/{uuid.uuid4()}.wav'
+    output_path = f"assets/{uuid.uuid4()}.wav"
     torchaudio.save(output_path, torch.from_numpy(wavs[0]), 24000)
     return buffer.getvalue()
