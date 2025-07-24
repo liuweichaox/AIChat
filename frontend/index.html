@@ -94,6 +94,10 @@
               playAudio(msg.data)
             }
           }
+          ws.onclose = () => {
+            recording.value = false
+            listening.value = false
+          }
 
           stream = await navigator.mediaDevices.getUserMedia({ audio: true })
           audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 })
@@ -104,6 +108,8 @@
             if (!recording.value || !listening.value) return
             if (ws.readyState === WebSocket.OPEN) {
               ws.send(e.data.buffer)
+            } else {
+              console.warn('WebSocket not open:', ws.readyState)
             }
           }
           source.connect(processor)
