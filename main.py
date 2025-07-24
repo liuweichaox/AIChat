@@ -3,11 +3,11 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from api.routes import router as api_router
-from api.websocket_api import router
+from api.audio_ws import router as ws_router
 
 app = FastAPI()
 app.include_router(api_router)
-app.include_router(router)
+app.include_router(ws_router)
 
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
 

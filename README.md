@@ -1,6 +1,6 @@
 # Mumu AI Voice Demo
 
-This example shows a simple ChatGPT-like voice conversation using WebRTC.
+This example shows a simple ChatGPT-like voice conversation using WebSocket.
 
 Run the API server:
 
