@@ -89,8 +89,13 @@
 
           stream = await navigator.mediaDevices.getUserMedia({ audio: true })
           audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 })
+          await audioCtx.audioWorklet.addModule('/static/recorderWorklet.js')
           const source = audioCtx.createMediaStreamSource(stream)
-          processor = audioCtx.createScriptProcessor(4096, 1, 1)
+          processor = new AudioWorkletNode(audioCtx, 'recorder')
+          processor.port.onmessage = (e) => {
+            if (!recording.value || !listening.value) return
+            ws.send(e.data.buffer)
+          }
           source.connect(processor)
           processor.connect(audioCtx.destination)
           processor.onaudioprocess = (e) => {
