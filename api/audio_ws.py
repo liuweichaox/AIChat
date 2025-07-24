@@ -1,6 +1,8 @@
+import wave
 from fastapi import APIRouter, WebSocket
 import json
 import webrtcvad
+import numpy as np
 
 from worker.asr_worker import transcribe
 from worker.nlp_worker import full_reply
@@ -14,7 +16,7 @@ router = APIRouter()
 async def audio_ws(websocket: WebSocket):
     await websocket.accept()
 
-    vad = webrtcvad.Vad(2)
+    vad = webrtcvad.Vad(3)
     audio_buffer = b""
     frame_buffer = b""
     silence_counter = 0
@@ -36,7 +38,6 @@ async def audio_ws(websocket: WebSocket):
                 frame_buffer = frame_buffer[FRAME_SIZE:]
 
                 is_speech = vad.is_speech(seg, SAMPLE_RATE)
-
                 if is_speech:
                     silence_counter = 0
                     audio_buffer += seg
@@ -48,6 +49,8 @@ async def audio_ws(websocket: WebSocket):
 
                 if speech_started and silence_counter >= SILENCE_THRESHOLD and audio_buffer:
                     transcript = await transcribe(audio_buffer)
+                    if not transcript:
+                        continue
                     await websocket.send_text(
                         json.dumps({"type": "transcript", "data": transcript})
                     )
