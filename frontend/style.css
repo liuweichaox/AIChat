@@ -48,6 +48,12 @@
     align-items: flex-start;
   }
 
+  .user {
+    width: 100%;
+    margin-bottom: 0.5rem;
+    color: #555;
+  }
+
   .token {
     display: inline;
     white-space: pre-wrap;
