@@ -3,6 +3,8 @@
 from fastapi import APIRouter, UploadFile, File
 from fastapi.responses import JSONResponse, StreamingResponse
 from services.asr_service import transcribe
+import io
+import soundfile as sf
 from services.llm_service import full_reply, stream_reply
 from services.tts_service import synthesize
 
@@ -13,7 +15,8 @@ async def asr_endpoint(audio: UploadFile = File(...)):
     """接收上传的音频并调用 Whisper 进行识别。"""
 
     audio_bytes = await audio.read()
-    text = await transcribe(audio_bytes)
+    data, sr = sf.read(io.BytesIO(audio_bytes), dtype="int16")
+    text = await transcribe(data.tobytes(), sr)
     return JSONResponse({"transcript": text})
 
 @router.get("/full-reply")
