@@ -17,9 +17,6 @@ from services.tts_service import synthesize_stream
 
 router = APIRouter(prefix="/rtc")
 
-pcs = {}
-
-
 class TTSTrack(MediaStreamTrack):
     """向客户端回传合成语音的自定义音频轨道。"""
 
@@ -28,25 +25,17 @@ class TTSTrack(MediaStreamTrack):
     def __init__(self):
         super().__init__()
         self.queue = asyncio.Queue()
-        self.stop_event = asyncio.Event()
 
     async def stream_text(self, text: str):
         """将文本转为语音并持续推送到对端。"""
 
-        self.stop_event.clear()
         async for chunk in synthesize_stream(text):
-            if self.stop_event.is_set():
-                break
             array = np.frombuffer(chunk, dtype=np.int16)
             array = array.reshape(1, -1)
             frame = av.AudioFrame.from_ndarray(array, layout="mono")
             await self.queue.put(frame)
         await self.queue.put(None)
 
-    def interrupt(self):
-        """提前停止语音流。"""
-
-        self.stop_event.set()
 
     async def recv(self):
         """获取下一帧音频并发送给客户端。"""
@@ -69,7 +58,6 @@ async def offer(request: Request):
     tts_track = TTSTrack()
     # 添加 TTS 音轨，并在字典中保存 peer connection 相关信息
     pc.addTrack(tts_track)
-    pcs[pc_id] = {"pc": pc, "tts": tts_track}
 
     data_channel = None
 
@@ -78,7 +66,6 @@ async def offer(request: Request):
         nonlocal data_channel
         if channel.label == "tts":
             data_channel = channel
-            pcs[pc_id]["channel"] = channel
 
     # 设置麦克风流语音检测的参数
     vad = webrtcvad.Vad(3)
@@ -122,7 +109,6 @@ async def offer(request: Request):
                         speech_started = True
                     if speech_started:
                         audio_buffer += seg
-                        tts_track.interrupt()
                 else:
                     if speech_started:
                         silence_counter += 1

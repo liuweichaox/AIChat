@@ -50,8 +50,6 @@
         const error = ref(null)
         // WebRTC PeerConnection 对象
         let pc
-        // 控制信令的 WebSocket 连接
-        let ctrl
         // 语音合成的数据通道
         let ttsChannel
         // 本地音频流
@@ -113,7 +111,7 @@
         }
 
         /**
-         * 开始一次语音会话，初始化WebRTC和WebSocket
+        * 开始一次语音会话，初始化 WebRTC
          */
         async function startCall() {
           // 清空界面状态
@@ -125,63 +123,54 @@
           error.value = null
           scrollToBottom()
 
-          // 建立WebSocket控制通道
-          ctrl = new WebSocket(`ws://${location.host}/ws/control`)
-
-          // WebSocket连接建立后，初始化WebRTC
-          ctrl.onopen = async () => {
-            pc = new RTCPeerConnection()
-            // 创建数据通道用于文本/音频传输
-            ttsChannel = pc.createDataChannel('tts')
-            ttsChannel.onmessage = (e) => {
-              // 处理服务端推送的消息
-              const msg = JSON.parse(e.data)
-              if (msg.type === 'transcript') {
-                // 语音转文字结果
-                userText.value = msg.data
-                listening.value = false
-                history.value.push({ role: 'user', text: msg.data })
-                scrollToBottom()
-              } else if (msg.type === 'text') {
-                // 机器人文本回复
-                typeReply(msg.data)
-              }
+          pc = new RTCPeerConnection()
+          // 创建数据通道用于文本/音频传输
+          ttsChannel = pc.createDataChannel('tts')
+          ttsChannel.onmessage = (e) => {
+            // 处理服务端推送的消息
+            const msg = JSON.parse(e.data)
+            if (msg.type === 'transcript') {
+              // 语音转文字结果
+              userText.value = msg.data
+              listening.value = false
+              history.value.push({ role: 'user', text: msg.data })
+              scrollToBottom()
+            } else if (msg.type === 'text') {
+              // 机器人文本回复
+              typeReply(msg.data)
             }
-
-            pc.ontrack = (ev) => {
-              if (ev.track.kind === 'audio') {
-                playRemoteTrack(ev.track)
-              }
-            }
-
-            // 获取本地麦克风音频流
-            localStream = await navigator.mediaDevices.getUserMedia({ audio: true })
-            // 添加音频轨道到WebRTC
-            localStream.getTracks().forEach(t => pc.addTrack(t, localStream))
-
-            // 创建WebRTC offer
-            const offer = await pc.createOffer()
-            await pc.setLocalDescription(offer)
-
-            // 发送offer到后端，获取answer
-            const resp = await fetch('/rtc/offer', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(pc.localDescription)
-            })
-            const ans = await resp.json()
-            // 设置远端描述
-            await pc.setRemoteDescription(new RTCSessionDescription(ans))
-            // 注册会话ID
-            ctrl.send(JSON.stringify({ type: 'register', id: ans.id }))
           }
+
+          pc.ontrack = (ev) => {
+            if (ev.track.kind === 'audio') {
+              playRemoteTrack(ev.track)
+            }
+          }
+
+          // 获取本地麦克风音频流
+          localStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+          // 添加音频轨道到WebRTC
+          localStream.getTracks().forEach(t => pc.addTrack(t, localStream))
+
+          // 创建WebRTC offer
+          const offer = await pc.createOffer()
+          await pc.setLocalDescription(offer)
+
+          // 发送offer到后端，获取answer
+          const resp = await fetch('/rtc/offer', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(pc.localDescription)
+          })
+          const ans = await resp.json()
+          // 设置远端描述
+          await pc.setRemoteDescription(new RTCSessionDescription(ans))
         }
 
         /**
          * 停止语音会话，关闭连接和音频流
          */
         function stopCall() {
-          ctrl?.close() // 关闭WebSocket
           pc?.close()   // 关闭WebRTC
           // 停止本地音频采集
           localStream?.getTracks().forEach(t => t.stop())

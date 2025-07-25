@@ -1,8 +1,8 @@
 # Mumu AI Voice Demo
 
 This example shows a simple ChatGPT-like voice conversation. Audio is streamed
-between the browser and server using WebRTC, and a separate WebSocket channel
-handles control messages such as interrupting text-to-speech playback.
+between the browser and server using WebRTC. Each audio segment is saved to the
+`recordings/` directory before being transcribed.
 
 ## Setup
 
