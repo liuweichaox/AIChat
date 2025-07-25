@@ -1,3 +1,5 @@
+"""基于 Edge TTS 的文本转语音辅助函数。"""
+
 import os
 import uuid
 import edge_tts
@@ -6,7 +8,7 @@ VOICE = "zh-CN-XiaoxiaoNeural"
 
 
 async def synthesize(text: str) -> bytes:
-    """Synthesize text to audio and return WAV bytes."""
+    """将文本一次性合成为语音并返回 WAV 数据。"""
     tts = edge_tts.Communicate(text=text, voice=VOICE)
     os.makedirs("assets", exist_ok=True)
     output_path = f"assets/{uuid.uuid4()}.wav"
@@ -16,7 +18,7 @@ async def synthesize(text: str) -> bytes:
 
 
 async def synthesize_stream(text: str):
-    """Asynchronously yield WAV byte chunks for streaming playback."""
+    """异步生成语音数据块，用于流式播放。"""
     communicator = edge_tts.Communicate(text=text, voice=VOICE)
     async for chunk in communicator.stream():
         if chunk["type"] == "audio":
