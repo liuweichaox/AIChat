@@ -1,9 +1,9 @@
 """调用智谱 AI 聊天接口的封装函数。"""
 
 from zhipuai import ZhipuAI
+import os
 
-BIGMODEL_API_KEY = "fe28433d565d40a5a1806ab43719e504.HHwmOUiDA4XPCDkk"
-client = ZhipuAI(api_key=BIGMODEL_API_KEY)
+client = ZhipuAI(api_key=os.getenv("BIGMODEL_API_KEY"))
 
 
 def format_messages(user_text: str):
