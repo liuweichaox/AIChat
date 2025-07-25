@@ -10,9 +10,9 @@ from aiortc import RTCPeerConnection, RTCSessionDescription
 from aiortc.mediastreams import MediaStreamTrack
 from fastapi import APIRouter, Request
 
-from worker.asr_worker import transcribe
-from worker.nlp_worker import full_reply
-from worker.tts_worker import synthesize_stream
+from services.asr_service import transcribe
+from services.llm_service import full_reply
+from services.tts_service import synthesize_stream
 
 router = APIRouter(prefix="/rtc")
 

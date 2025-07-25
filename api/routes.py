@@ -2,9 +2,9 @@
 
 from fastapi import APIRouter, UploadFile, File
 from fastapi.responses import JSONResponse, StreamingResponse
-from worker.asr_worker import transcribe
-from worker.nlp_worker import full_reply, stream_reply
-from worker.tts_worker import synthesize
+from services.asr_service import transcribe
+from services.llm_service import full_reply, stream_reply
+from services.tts_service import synthesize
 
 router = APIRouter(prefix="/api")
 

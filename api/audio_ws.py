@@ -7,9 +7,9 @@ import numpy as np
 import webrtcvad
 from fastapi import APIRouter, WebSocket
 
-from worker.asr_worker import transcribe
-from worker.nlp_worker import full_reply
-from worker.tts_worker import synthesize
+from services.asr_service import transcribe
+from services.llm_service import full_reply
+from services.tts_service import synthesize
 
 
 router = APIRouter()
