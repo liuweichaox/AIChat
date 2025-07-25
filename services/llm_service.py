@@ -4,9 +4,8 @@ from zhipuai import ZhipuAI
 import os
 import asyncio
 
-# 建议用环境变量读取，而不是硬编码 API Key
-# client = ZhipuAI(api_key=os.getenv("BIGMODEL_API_KEY"))
-client = ZhipuAI(api_key="fe28433d565d40a5a1806ab43719e504.HHwmOUiDA4XPCDkk")
+api_key = os.getenv("BIGMODEL_API_KEY")
+client = ZhipuAI(api_key=api_key)
 
 def format_messages(user_text: str):
     """根据用户输入构造对话上下文。"""
@@ -17,6 +16,9 @@ def format_messages(user_text: str):
 
 async def full_reply(user_text: str) -> str:
     """获取模型对用户提问的完整回答。"""
+    user_text = user_text.strip()
+    if not user_text:
+        return ""
     try:
         # 把同步调用放到线程池里，避免阻塞事件循环
         loop = asyncio.get_event_loop()
@@ -30,6 +32,7 @@ async def full_reply(user_text: str) -> str:
         return response.choices[0].message.content
     except Exception as e:
         return f"Error: {e}"
+
 
 async def stream_reply(user_text: str):
     """以流式方式逐块返回模型回复。"""
