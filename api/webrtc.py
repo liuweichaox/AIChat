@@ -103,11 +103,13 @@ async def offer(request: Request):
                 frame = await track.recv()
             except MediaStreamError:
                 break
-            # 将音频帧转换为 int16 PCM，并重采样到 ASR 需要的采样率
-            samples = frame.to_ndarray()
-            if samples.dtype != np.int16:
-                samples = (samples * 32768).astype(np.int16)
-            pcm = samples.tobytes()
+            # 将音频帧转换为原始 PCM 数据，并重采样到 ASR 需要的采样率
+            array = frame.to_ndarray()
+            if array.ndim > 1:
+                array = array.mean(axis=0)
+            if array.dtype != np.int16:
+                array = array.astype(np.int16)
+            pcm = array.tobytes()
             if frame.sample_rate != SAMPLE_RATE:
                 pcm, _ = audioop.ratecv(pcm, 2, 1, frame.sample_rate, SAMPLE_RATE, None)
             frame_buffer += pcm
