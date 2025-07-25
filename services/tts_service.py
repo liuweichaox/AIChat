@@ -13,8 +13,11 @@ async def synthesize(text: str) -> bytes:
     os.makedirs("assets", exist_ok=True)
     output_path = f"assets/{uuid.uuid4()}.wav"
     await tts.save(output_path)
-    with open(output_path, "rb") as f:
-        return f.read()
+    try:
+        with open(output_path, "rb") as f:
+            return f.read()
+    finally:
+        os.remove(output_path)
 
 
 async def synthesize_stream(text: str):
