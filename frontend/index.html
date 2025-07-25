@@ -1,11 +1,13 @@
 <!DOCTYPE html>
 <html lang="zh">
+
 <head>
   <meta charset="UTF-8" />
   <title>语音助手</title>
   <link rel="stylesheet" href="/static/style.css" />
   <script type="module" src="https://unpkg.com/vue@3/dist/vue.esm-browser.js"></script>
 </head>
+
 <body>
   <div id="app">
     <h1>您好，我在</h1>
@@ -16,7 +18,8 @@
       </div>
       <div class="message user" v-if="userText">{{ userText }}</div>
       <div class="message bot" v-if="reply.length">
-        <span v-for="token in reply" :key="token.id" class="token">{{ token.text }}</span><span class="cursor" v-if="listening || typing">▋</span>
+        <span v-for="token in reply" :key="token.id" class="token">{{ token.text }}</span><span class="cursor"
+          v-if="listening || typing">▋</span>
       </div>
     </div>
 
@@ -27,53 +30,82 @@
     <div v-if="error" class="error">⚠️ {{ error }}</div>
   </div>
 
-    <script type="module">
-      import { createApp, ref } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
+  <script type="module">
+    import { createApp, ref } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
+    createApp({
+      setup() {
+        // 回复内容的 token 数组（逐字显示）
+        const reply = ref([])
+        // 聊天历史记录，包含用户和机器人消息
+        const history = ref([])
+        // 当前用户语音转文字的内容
+        const userText = ref('')
+        // 是否正在录音（通话状态）
+        const recording = ref(false)
+        // 是否处于“等待用户说话”状态
+        const listening = ref(false)
+        // 是否正在逐字输出机器人回复
+        const typing = ref(false)
+        // 错误信息
+        const error = ref(null)
+        // WebRTC PeerConnection 对象
+        let pc
+        // 控制信令的 WebSocket 连接
+        let ctrl
+        // 语音合成的数据通道
+        let ttsChannel
+        // 本地音频流
+        let localStream
 
-      createApp({
-        setup() {
-          const reply = ref([])
-          const history = ref([])
-          const userText = ref('')
-          const recording = ref(false)
-          const listening = ref(false)
-          const typing = ref(false)
-          const error = ref(null)
-          let pc
-          let ctrl
-          let ttsChannel
-          let localStream
-
-          function playAudio(hex) {
-            const bytes = new Uint8Array(hex.match(/.{1,2}/g).map(b => parseInt(b, 16)))
-            const blob = new Blob([bytes], { type: 'audio/wav' })
-            const url = URL.createObjectURL(blob)
-            const audio = new Audio(url)
-            audio.onended = () => {
-              setTimeout(() => {
-                listening.value = true
-                userText.value = ''
-              }, 1000)
-            }
-            audio.play()
+        /**
+         * 播放机器人返回的音频数据
+         * @param {string} hex - 16进制字符串音频数据
+         */
+        function playAudio(hex) {
+          // 将16进制字符串转为Uint8Array
+          const bytes = new Uint8Array(hex.match(/.{1,2}/g).map(b => parseInt(b, 16)))
+          // 创建音频Blob对象
+          const blob = new Blob([bytes], { type: 'audio/wav' })
+          // 创建音频URL
+          const url = URL.createObjectURL(blob)
+          // 创建音频对象并播放
+          const audio = new Audio(url)
+          audio.onended = () => {
+            // 播放结束后，1秒后进入“等待用户说话”状态
+            setTimeout(() => {
+              listening.value = true
+              userText.value = ''
+            }, 1000)
           }
+          audio.play()
+        }
 
+        /**
+         * 逐字显示机器人回复内容，并加入历史
+         * @param {string} text - 机器人回复文本
+         */
         function typeReply(text) {
           reply.value = []
           typing.value = true
           let i = 0
+          // 每50ms显示一个字符
           const timer = setInterval(() => {
             reply.value.push({ id: reply.value.length, text: text[i] })
             i++
             if (i >= text.length) {
               clearInterval(timer)
               typing.value = false
+              // 回复结束后加入历史
               history.value.push({ role: 'bot', text })
             }
           }, 50)
         }
 
+        /**
+         * 开始一次语音会话，初始化WebRTC和WebSocket
+         */
         async function startCall() {
+          // 清空界面状态
           reply.value = []
           history.value = []
           userText.value = ''
@@ -81,64 +113,89 @@
           listening.value = true
           error.value = null
 
+          // 建立WebSocket控制通道
           ctrl = new WebSocket(`ws://${location.host}/ws/control`)
 
+          // WebSocket连接建立后，初始化WebRTC
           ctrl.onopen = async () => {
             pc = new RTCPeerConnection()
+            // 创建数据通道用于文本/音频传输
             ttsChannel = pc.createDataChannel('tts')
             ttsChannel.onmessage = (e) => {
+              // 处理服务端推送的消息
               const msg = JSON.parse(e.data)
               if (msg.type === 'transcript') {
+                // 语音转文字结果
                 userText.value = msg.data
                 listening.value = false
                 history.value.push({ role: 'user', text: msg.data })
               } else if (msg.type === 'text') {
+                // 机器人文本回复
                 typeReply(msg.data)
               } else if (msg.type === 'audio') {
+                // 机器人语音回复
                 playAudio(msg.data)
               }
             }
 
+            // 获取本地麦克风音频流
             localStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+            // 添加音频轨道到WebRTC
             localStream.getTracks().forEach(t => pc.addTrack(t, localStream))
 
+            // 创建WebRTC offer
             const offer = await pc.createOffer()
             await pc.setLocalDescription(offer)
 
+            // 发送offer到后端，获取answer
             const resp = await fetch('/rtc/offer', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(pc.localDescription)
             })
             const ans = await resp.json()
+            // 设置远端描述
             await pc.setRemoteDescription(new RTCSessionDescription(ans))
+            // 注册会话ID
             ctrl.send(JSON.stringify({ type: 'register', id: ans.id }))
           }
         }
 
+        /**
+         * 停止语音会话，关闭连接和音频流
+         */
         function stopCall() {
-          ctrl?.close()
-          pc?.close()
+          ctrl?.close() // 关闭WebSocket
+          pc?.close()   // 关闭WebRTC
+          // 停止本地音频采集
           localStream?.getTracks().forEach(t => t.stop())
           recording.value = false
         }
 
+        /**
+         * 切换麦克风（开始/停止会话）
+         */
         async function toggleMic() {
           if (recording.value) {
+            // 已在通话则停止
             stopCall()
           } else {
             try {
+              // 否则开始新会话
               await startCall()
             } catch (err) {
+              // 捕获异常并显示错误
               error.value = err.message
               recording.value = false
             }
           }
         }
 
+        // 暴露给模板的数据和方法
         return { reply, history, userText, recording, listening, typing, error, toggleMic }
       }
     }).mount('#app')
   </script>
 </body>
+
 </html>
