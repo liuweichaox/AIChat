@@ -24,18 +24,31 @@ class TTSTrack(MediaStreamTrack):
 
     kind = "audio"
 
+ 
+
     def __init__(self):
         super().__init__()
         self.queue = asyncio.Queue()
         self.timestamp = 0
 
+    
+
     async def stream_text(self, text: str):
-        """将文本转为语音并持续推送到对端。"""
-
+        buffer = bytearray()
+        FRAME_SAMPLES = 960 
+        FRAME_BYTES = FRAME_SAMPLES * 2
         async for chunk in synthesize_stream(text):
-            await self.queue.put(chunk)
+            buffer.extend(chunk)
+            while len(buffer) >= FRAME_BYTES:
+                frame = bytes(buffer[:FRAME_BYTES])
+                buffer = buffer[FRAME_BYTES:]
+                await self.queue.put(frame)
+        # flush剩余数据
+        if buffer:
+            # 用静音填充到 960 samples
+            pad = FRAME_BYTES - len(buffer)
+            await self.queue.put(bytes(buffer) + b"\x00" * pad)
         await self.queue.put(None)
-
 
     async def recv(self):
         """获取下一帧音频并发送给客户端。"""
