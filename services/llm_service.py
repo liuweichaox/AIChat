@@ -3,7 +3,7 @@
 from zhipuai import ZhipuAI
 import os
 
-client = ZhipuAI(api_key=os.getenv("BIGMODEL_API_KEY"))
+client = ZhipuAI(api_key="fe28433d565d40a5a1806ab43719e504.HHwmOUiDA4XPCDkk")
 
 
 def format_messages(user_text: str):
