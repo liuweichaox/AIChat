@@ -4,7 +4,7 @@ import os
 import uuid
 import edge_tts
 
-TTS_DIR = "tts_recordings"
+
 VOICE = "zh-CN-XiaoxiaoNeural"
 TTS_DIR = "tts_recordings"
 
