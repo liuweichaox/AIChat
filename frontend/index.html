@@ -84,7 +84,7 @@
           reply.value = []
           typing.value = true
           let i = 0
-          // 每50ms显示一个字符
+          // 每150ms显示一个字符，速度与语音播放接近
           const timer = setInterval(() => {
             reply.value.push({ id: reply.value.length, text: text[i] })
             i++
@@ -94,7 +94,7 @@
               // 回复结束后加入历史
               history.value.push({ role: 'bot', text })
             }
-          }, 50)
+          }, 150)
         }
 
         /**
