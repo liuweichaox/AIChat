@@ -7,6 +7,7 @@ import uuid
 import av
 import numpy as np
 import webrtcvad
+import audioop
 from aiortc import RTCPeerConnection, RTCSessionDescription
 from aiortc.mediastreams import MediaStreamTrack, MediaStreamError
 from fastapi import APIRouter, Request
@@ -30,9 +31,11 @@ class TTSTrack(MediaStreamTrack):
         """将文本转为语音并持续推送到对端。"""
 
         async for chunk in synthesize_stream(text):
-            array = np.frombuffer(chunk, dtype=np.int16)
-            array = array.reshape(1, -1)
+            # synthesize_stream 输出的是 16kHz PCM，需要转换为 WebRTC 使用的采样率
+            resampled, _ = audioop.ratecv(chunk, 2, 1, SAMPLE_RATE, OUT_SAMPLE_RATE, None)
+            array = np.frombuffer(resampled, dtype=np.int16).reshape(1, -1)
             frame = av.AudioFrame.from_ndarray(array, layout="mono")
+            frame.sample_rate = OUT_SAMPLE_RATE
             await self.queue.put(frame)
         await self.queue.put(None)
 
@@ -82,7 +85,8 @@ async def offer(request: Request):
     # users have a brief pause to continue speaking without
     # prematurely triggering ASR.
     SILENCE_THRESHOLD = int(1200 / FRAME_DURATION_MS)
-    SAMPLE_RATE = 16000
+    SAMPLE_RATE = 16000  # Whisper 识别所需采样率
+    OUT_SAMPLE_RATE = 48000  # WebRTC 音频轨道采样率
     FRAME_SIZE = int(SAMPLE_RATE * FRAME_DURATION_MS / 1000) * 2
     speech_started = False
 
@@ -97,8 +101,10 @@ async def offer(request: Request):
                 frame = await track.recv()
             except MediaStreamError:
                 break
-            # 将音频帧转换为原始 PCM 数据
+            # 将音频帧转换为原始 PCM 数据，并重采样到 ASR 需要的采样率
             pcm = frame.to_ndarray().tobytes()
+            if frame.sample_rate != SAMPLE_RATE:
+                pcm, _ = audioop.ratecv(pcm, 2, 1, frame.sample_rate, SAMPLE_RATE, None)
             frame_buffer += pcm
             while len(frame_buffer) >= FRAME_SIZE:
                 seg = frame_buffer[:FRAME_SIZE]
