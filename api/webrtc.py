@@ -95,26 +95,29 @@ async def offer(request: Request):
     # users have a brief pause to continue speaking without
     # prematurely triggering ASR.
     SILENCE_THRESHOLD = int(1200 / FRAME_DURATION_MS)
-    SAMPLE_RATE = 16000
-    FRAME_SIZE = int(SAMPLE_RATE * FRAME_DURATION_MS / 1000) * 2
+    sample_rate = None
+    frame_size = None
     speech_started = False
 
     @pc.on("track")
     async def on_track(track):
-        nonlocal audio_buffer, frame_buffer, silence_counter, speech_started, speech_counter
+        nonlocal audio_buffer, frame_buffer, silence_counter, speech_started, speech_counter, sample_rate, frame_size
         # 只处理音频轨道
         if track.kind != "audio":
             return
         while True:
             frame = await track.recv()
+            if sample_rate is None:
+                sample_rate = frame.sample_rate
+                frame_size = int(sample_rate * FRAME_DURATION_MS / 1000) * 2
             # 将音频帧转换为原始 PCM 数据
             pcm = frame.to_ndarray().tobytes()
             frame_buffer += pcm
-            while len(frame_buffer) >= FRAME_SIZE:
-                seg = frame_buffer[:FRAME_SIZE]
-                frame_buffer = frame_buffer[FRAME_SIZE:]
+            while len(frame_buffer) >= frame_size:
+                seg = frame_buffer[:frame_size]
+                frame_buffer = frame_buffer[frame_size:]
                 # 通过 VAD 判断当前帧是否为语音
-                is_speech = vad.is_speech(seg, SAMPLE_RATE)
+                is_speech = vad.is_speech(seg, sample_rate)
                 if is_speech:
                     silence_counter = 0
                     speech_counter += 1
@@ -130,7 +133,7 @@ async def offer(request: Request):
                     speech_counter = 0
                 if speech_started and silence_counter >= SILENCE_THRESHOLD and audio_buffer:
                     # 静音判定结束后，生成回复并启动语音合成
-                    transcript = await transcribe(audio_buffer)
+                    transcript = await transcribe(audio_buffer, sample_rate)
                     if not transcript.strip():
                         audio_buffer = b""
                         silence_counter = 0
