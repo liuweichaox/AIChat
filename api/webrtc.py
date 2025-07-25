@@ -87,8 +87,14 @@ async def offer(request: Request):
     silence_counter = 0
     speech_counter = 0
     FRAME_DURATION_MS = 30
-    SILENCE_THRESHOLD = int(800 / FRAME_DURATION_MS)
-    SPEECH_START_FRAMES = int(200 / FRAME_DURATION_MS)
+    #
+    # Require at least ~400ms of continuous speech before starting
+    # to avoid false triggers from short noises.
+    SPEECH_START_FRAMES = int(400 / FRAME_DURATION_MS)
+    # Wait for ~1.2s of silence before ending a segment so that
+    # users have a brief pause to continue speaking without
+    # prematurely triggering ASR.
+    SILENCE_THRESHOLD = int(1200 / FRAME_DURATION_MS)
     SAMPLE_RATE = 16000
     FRAME_SIZE = int(SAMPLE_RATE * FRAME_DURATION_MS / 1000) * 2
     speech_started = False
