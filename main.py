@@ -1,3 +1,5 @@
+"""FastAPI 应用的入口，提供前端演示所需的服务。"""
+
 from fastapi import FastAPI
 from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
@@ -25,9 +27,12 @@ app.add_middleware(
 
 @app.get("/")
 async def root():
+    """返回前端页面。"""
+
     return RedirectResponse(url="/static/index.html")
     
     
 if __name__ == "__main__":
     import uvicorn
+    # 启动开发服务器
     uvicorn.run(app, host="127.0.0.1", port=8000)
