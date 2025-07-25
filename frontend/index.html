@@ -12,7 +12,7 @@
   <div id="app">
     <h1>欢迎使用语音助手，点击下方按钮开始对话</h1>
 
-    <div class="history">
+    <div class="history" ref="historyEl">
       <div v-for="(msg, idx) in history" :key="idx" :class="['message', msg.role]">
         {{ msg.text }}
       </div>
@@ -31,7 +31,7 @@
   </div>
 
   <script type="module">
-    import { createApp, ref } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
+    import { createApp, ref, nextTick } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
     createApp({
       setup() {
         // 回复内容的 token 数组（逐字显示）
@@ -58,6 +58,19 @@
         let localStream
         // 远端语音播放
         let remoteAudio
+        // 聊天记录容器元素
+        const historyEl = ref(null)
+
+        /**
+         * 将滚动条移到底部，始终显示最新消息
+         */
+        function scrollToBottom() {
+          nextTick(() => {
+            if (historyEl.value) {
+              historyEl.value.scrollTop = historyEl.value.scrollHeight
+            }
+          })
+        }
 
         /**
          * 播放远端语音轨道
@@ -87,12 +100,14 @@
           // 每150ms显示一个字符，速度与语音播放接近
           const timer = setInterval(() => {
             reply.value.push({ id: reply.value.length, text: text[i] })
+            scrollToBottom()
             i++
             if (i >= text.length) {
               clearInterval(timer)
               typing.value = false
               // 回复结束后加入历史
               history.value.push({ role: 'bot', text })
+              scrollToBottom()
             }
           }, 150)
         }
@@ -108,6 +123,7 @@
           recording.value = true
           listening.value = true
           error.value = null
+          scrollToBottom()
 
           // 建立WebSocket控制通道
           ctrl = new WebSocket(`ws://${location.host}/ws/control`)
@@ -125,6 +141,7 @@
                 userText.value = msg.data
                 listening.value = false
                 history.value.push({ role: 'user', text: msg.data })
+                scrollToBottom()
               } else if (msg.type === 'text') {
                 // 机器人文本回复
                 typeReply(msg.data)
@@ -191,7 +208,7 @@
         }
 
         // 暴露给模板的数据和方法
-        return { reply, history, userText, recording, listening, typing, error, toggleMic }
+        return { reply, history, userText, recording, listening, typing, error, toggleMic, historyEl }
       }
     }).mount('#app')
   </script>
