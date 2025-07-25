@@ -54,14 +54,12 @@
         const error = ref(null)
         // 是否显示字幕
         const showSubtitles = ref(true)
-        // WebRTC PeerConnection 对象
-        let pc
-        // 语音合成的数据通道
-        let ttsChannel
-        // 本地音频流
+        // WebSocket 连接
+        let ws
+        // 音频处理相关对象
+        let audioCtx
+        let processor
         let localStream
-        // 远端语音播放
-        let remoteAudio
         // 聊天记录容器元素
         const historyEl = ref(null)
 
@@ -77,21 +75,33 @@
         }
 
         /**
-         * 播放远端语音轨道
-         * @param {MediaStreamTrack} track - 远端音频轨道
+         * 播放从服务端返回的 PCM 音频数据
+         * @param {ArrayBuffer} data - PCM 数据
          */
-        function playRemoteTrack(track) {
-          debugger
-          const stream = new MediaStream([track])
-          remoteAudio = new Audio()
-          remoteAudio.srcObject = stream
-          remoteAudio.onended = () => {
+        function playAudio(data) {
+          if (!audioCtx) {
+            audioCtx = new AudioContext({ sampleRate: 48000 })
+          }
+          if (data.byteLength === 0) {
+            return
+          }
+          const pcm = new Int16Array(data)
+          const float = new Float32Array(pcm.length)
+          for (let i = 0; i < pcm.length; i++) {
+            float[i] = pcm[i] / 32768
+          }
+          const buffer = audioCtx.createBuffer(1, float.length, 48000)
+          buffer.copyToChannel(float, 0)
+          const source = audioCtx.createBufferSource()
+          source.buffer = buffer
+          source.connect(audioCtx.destination)
+          source.onended = () => {
             setTimeout(() => {
               listening.value = true
               userText.value = ''
             }, 1000)
           }
-          remoteAudio.play()
+          source.start()
         }
 
         /**
@@ -118,10 +128,9 @@
         }
 
         /**
-        * 开始一次语音会话，初始化 WebRTC
+        * 开始一次语音会话，初始化 WebSocket
          */
         async function startCall() {
-          // 清空界面状态
           reply.value = []
           history.value = []
           userText.value = ''
@@ -130,65 +139,49 @@
           error.value = null
           scrollToBottom()
 
-          pc = new RTCPeerConnection()
-          // 创建数据通道用于文本/音频传输
-          ttsChannel = pc.createDataChannel('tts')
-          ttsChannel.onmessage = (e) => {
-            // 处理服务端推送的消息
-            const msg = JSON.parse(e.data)
-            if (msg.type === 'transcript') {
-              // 语音转文字结果
-              userText.value = msg.data
-              listening.value = false
-              history.value.push({ role: 'user', text: msg.data })
-              scrollToBottom()
-            } else if (msg.type === 'text') {
-              // 机器人文本回复
-              typeReply(msg.data)
+          ws = new WebSocket(`ws://${location.host}/ws/audio`)
+          ws.binaryType = 'arraybuffer'
+          ws.onmessage = (e) => {
+            if (typeof e.data === 'string') {
+              const msg = JSON.parse(e.data)
+              if (msg.type === 'transcript') {
+                userText.value = msg.data
+                listening.value = false
+                history.value.push({ role: 'user', text: msg.data })
+                scrollToBottom()
+              } else if (msg.type === 'text') {
+                typeReply(msg.data)
+              }
+            } else {
+              playAudio(e.data)
             }
           }
 
-          pc.ontrack = (ev) => {
-            if (ev.track.kind === 'audio') {
-              playRemoteTrack(ev.track)
+          localStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+          audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 })
+          const source = audioCtx.createMediaStreamSource(localStream)
+          processor = audioCtx.createScriptProcessor(4096, 1, 1)
+          source.connect(processor)
+          processor.connect(audioCtx.destination)
+          processor.onaudioprocess = (ev) => {
+            if (ws.readyState !== WebSocket.OPEN) return
+            const input = ev.inputBuffer.getChannelData(0)
+            const buf = new ArrayBuffer(input.length * 2)
+            const view = new DataView(buf)
+            for (let i = 0; i < input.length; i++) {
+              let s = Math.max(-1, Math.min(1, input[i]))
+              view.setInt16(i * 2, s * 0x7fff, true)
             }
+            ws.send(buf)
           }
-
-          // 获取本地麦克风音频流
-          localStream = await navigator.mediaDevices.getUserMedia({
-            audio: {
-              sampleRate: 48000,      // 采集 48kHz 音频
-              channelCount: 1,
-              echoCancellation: true,
-              noiseSuppression: true,
-              autoGainControl: false
-            }
-          })
-
-          // 添加音频轨道到WebRTC
-          localStream.getTracks().forEach(t => pc.addTrack(t, localStream))
-
-          // 创建WebRTC offer
-          const offer = await pc.createOffer()
-          await pc.setLocalDescription(offer)
-
-          // 发送offer到后端，获取answer
-          const resp = await fetch('/rtc/offer', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(pc.localDescription)
-          })
-          const ans = await resp.json()
-          // 设置远端描述
-          await pc.setRemoteDescription(new RTCSessionDescription(ans))
         }
 
         /**
          * 停止语音会话，关闭连接和音频流
          */
         function stopCall() {
-          pc?.close()   // 关闭WebRTC
-          // 停止本地音频采集
+          ws?.close()
+          processor?.disconnect()
           localStream?.getTracks().forEach(t => t.stop())
           recording.value = false
         }

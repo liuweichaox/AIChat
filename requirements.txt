@@ -7,4 +7,3 @@ torchaudio
 webrtcvad
 uvicorn
 soundfile
-aiortc
