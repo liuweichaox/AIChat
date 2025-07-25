@@ -5,6 +5,7 @@ import json
 import uuid
 
 import av
+import numpy as np
 import webrtcvad
 from aiortc import RTCPeerConnection, RTCSessionDescription
 from aiortc.mediastreams import MediaStreamTrack
@@ -36,7 +37,8 @@ class TTSTrack(MediaStreamTrack):
         async for chunk in synthesize_stream(text):
             if self.stop_event.is_set():
                 break
-            frame = av.AudioFrame.from_ndarray(chunk, layout="mono")
+            array = np.frombuffer(chunk, dtype=np.int16)
+            frame = av.AudioFrame.from_ndarray(array, layout="mono")
             await self.queue.put(frame)
         await self.queue.put(None)
 
