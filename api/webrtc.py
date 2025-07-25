@@ -38,6 +38,7 @@ class TTSTrack(MediaStreamTrack):
             if self.stop_event.is_set():
                 break
             array = np.frombuffer(chunk, dtype=np.int16)
+            array = array.reshape(-1, 1)
             frame = av.AudioFrame.from_ndarray(array, layout="mono")
             await self.queue.put(frame)
         await self.queue.put(None)
