@@ -75,6 +75,7 @@
          * @param {MediaStreamTrack} track - 远端音频轨道
          */
         function playRemoteTrack(track) {
+          debugger
           const stream = new MediaStream([track])
           remoteAudio = new Audio()
           remoteAudio.srcObject = stream
