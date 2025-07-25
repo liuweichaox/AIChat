@@ -2,31 +2,47 @@
 
 import os
 import uuid
+import wave
 import edge_tts
 
 
 VOICE = "zh-CN-XiaoxiaoNeural"
-TTS_DIR = "tts_recordings"
+EDGE_FORMAT = "raw-16khz-16bit-mono-pcm"
+SAMPLE_RATE = 16000
 
 
 async def synthesize(text: str) -> bytes:
     """将文本一次性合成为语音并返回 WAV 数据，并保存文件。"""
-    tts = edge_tts.Communicate(text=text, voice=VOICE)
+    communicator = edge_tts.Communicate(
+        text=text, voice=VOICE, output_format=EDGE_FORMAT
+    )
     os.makedirs(TTS_DIR, exist_ok=True)
     output_path = f"{TTS_DIR}/{uuid.uuid4()}.wav"
-    await tts.save(output_path)
-    with open(output_path, "rb") as f:
-        return f.read()
+    audio_bytes = b""
+    async for chunk in communicator.stream():
+        if chunk["type"] == "audio":
+            audio_bytes += chunk["data"]
+    with wave.open(output_path, "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(SAMPLE_RATE)
+        wf.writeframes(audio_bytes)
+    return audio_bytes
 
 
 async def synthesize_stream(text: str):
     """异步生成语音数据块，用于流式播放，同时保存文件。"""
-    communicator = edge_tts.Communicate(text=text, voice=VOICE)
+    communicator = edge_tts.Communicate(
+        text=text, voice=VOICE, output_format=EDGE_FORMAT
+    )
     os.makedirs(TTS_DIR, exist_ok=True)
     output_path = f"{TTS_DIR}/{uuid.uuid4()}.wav"
-    with open(output_path, "wb") as f:
+    with wave.open(output_path, "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(SAMPLE_RATE)
         async for chunk in communicator.stream():
             if chunk["type"] == "audio":
                 data = chunk["data"]
-                f.write(data)
+                wf.writeframes(data)
                 yield data
