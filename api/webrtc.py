@@ -85,7 +85,8 @@ async def offer(request: Request):
         # 只处理音频轨道
         if track.kind != "audio":
             return
-        async for frame in track:
+        while True:
+            frame = await track.recv()
             # 将音频帧转换为原始 PCM 数据
             pcm = frame.to_ndarray().tobytes()
             frame_buffer += pcm
