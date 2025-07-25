@@ -148,7 +148,16 @@
           }
 
           // 获取本地麦克风音频流
-          localStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+          localStream = await navigator.mediaDevices.getUserMedia({
+            audio: {
+              sampleRate: 16000,      // 明确要求采样率（但浏览器可能会自动适配）
+              channelCount: 1,        // 明确要求单声道
+              echoCancellation: false,
+              noiseSuppression: false,
+              autoGainControl: false
+            }
+          })
+
           // 添加音频轨道到WebRTC
           localStream.getTracks().forEach(t => pc.addTrack(t, localStream))
 
