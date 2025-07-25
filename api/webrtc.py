@@ -82,15 +82,17 @@ async def offer(request: Request):
     audio_buffer = b""
     frame_buffer = b""
     silence_counter = 0
+    speech_counter = 0
     FRAME_DURATION_MS = 30
     SILENCE_THRESHOLD = int(800 / FRAME_DURATION_MS)
+    SPEECH_START_FRAMES = int(200 / FRAME_DURATION_MS)
     SAMPLE_RATE = 16000
     FRAME_SIZE = int(SAMPLE_RATE * FRAME_DURATION_MS / 1000) * 2
     speech_started = False
 
     @pc.on("track")
     async def on_track(track):
-        nonlocal audio_buffer, frame_buffer, silence_counter, speech_started
+        nonlocal audio_buffer, frame_buffer, silence_counter, speech_started, speech_counter
         # 只处理音频轨道
         if track.kind != "audio":
             return
@@ -106,16 +108,25 @@ async def offer(request: Request):
                 is_speech = vad.is_speech(seg, SAMPLE_RATE)
                 if is_speech:
                     silence_counter = 0
-                    audio_buffer += seg
-                    speech_started = True
-                    tts_track.interrupt()
+                    speech_counter += 1
+                    if not speech_started and speech_counter >= SPEECH_START_FRAMES:
+                        speech_started = True
+                    if speech_started:
+                        audio_buffer += seg
+                        tts_track.interrupt()
                 else:
                     if speech_started:
                         silence_counter += 1
                         audio_buffer += seg
+                    speech_counter = 0
                 if speech_started and silence_counter >= SILENCE_THRESHOLD and audio_buffer:
                     # 静音判定结束后，生成回复并启动语音合成
                     transcript = await transcribe(audio_buffer)
+                    if not transcript.strip():
+                        audio_buffer = b""
+                        silence_counter = 0
+                        speech_started = False
+                        continue
                     if data_channel and data_channel.readyState == "open":
                         data_channel.send(json.dumps({"type": "transcript", "data": transcript}))
                     reply_text = await full_reply(transcript)

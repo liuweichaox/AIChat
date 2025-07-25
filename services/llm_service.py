@@ -3,7 +3,12 @@
 from zhipuai import ZhipuAI
 import os
 
-client = ZhipuAI(api_key="fe28433d565d40a5a1806ab43719e504.HHwmOUiDA4XPCDkk")
+# 从环境变量读取 API Key，便于在不同环境安全部署
+api_key = os.getenv("BIGMODEL_API_KEY")
+if not api_key:
+    raise RuntimeError("BIGMODEL_API_KEY environment variable is not set")
+
+client = ZhipuAI(api_key=api_key)
 
 
 def format_messages(user_text: str):
@@ -17,6 +22,9 @@ def format_messages(user_text: str):
 
 async def full_reply(user_text: str) -> str:
     """获取模型对用户提问的完整回答。"""
+    user_text = user_text.strip()
+    if not user_text:
+        return ""
 
     response = client.chat.completions.create(
         model="glm-4-plus",
@@ -27,6 +35,9 @@ async def full_reply(user_text: str) -> str:
 
 async def stream_reply(user_text: str):
     """以流式方式逐块返回模型回复。"""
+    user_text = user_text.strip()
+    if not user_text:
+        return
 
     response = client.chat.completions.create(
         model="glm-4-plus",
