@@ -68,6 +68,15 @@ async def offer(request: Request):
     pc.addTrack(tts_track)
     pcs[pc_id] = {"pc": pc, "tts": tts_track}
 
+    data_channel = None
+
+    @pc.on("datachannel")
+    def on_datachannel(channel):
+        nonlocal data_channel
+        if channel.label == "tts":
+            data_channel = channel
+            pcs[pc_id]["channel"] = channel
+
     # 设置麦克风流语音检测的参数
     vad = webrtcvad.Vad(3)
     audio_buffer = b""
@@ -107,7 +116,11 @@ async def offer(request: Request):
                 if speech_started and silence_counter >= SILENCE_THRESHOLD and audio_buffer:
                     # 静音判定结束后，生成回复并启动语音合成
                     transcript = await transcribe(audio_buffer)
+                    if data_channel and data_channel.readyState == "open":
+                        data_channel.send(json.dumps({"type": "transcript", "data": transcript}))
                     reply_text = await full_reply(transcript)
+                    if data_channel and data_channel.readyState == "open":
+                        data_channel.send(json.dumps({"type": "text", "data": reply_text}))
                     asyncio.create_task(tts_track.stream_text(reply_text))
                     audio_buffer = b""
                     silence_counter = 0
