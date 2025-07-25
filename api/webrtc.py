@@ -8,13 +8,14 @@ import av
 import numpy as np
 import webrtcvad
 import audioop
+from fractions import Fraction
 from aiortc import RTCPeerConnection, RTCSessionDescription
 from aiortc.mediastreams import MediaStreamTrack, MediaStreamError
 from fastapi import APIRouter, Request
 
 from services.asr_service import transcribe
 from services.llm_service import full_reply
-from services.tts_service import synthesize_stream
+from services.tts_service import synthesize_stream, SAMPLE_RATE as TTS_SAMPLE_RATE
 
 router = APIRouter(prefix="/rtc")
 
@@ -26,6 +27,7 @@ class TTSTrack(MediaStreamTrack):
     def __init__(self):
         super().__init__()
         self.queue = asyncio.Queue()
+        self.timestamp = 0
 
     async def stream_text(self, text: str):
         """将文本转为语音并持续推送到对端。"""
@@ -38,10 +40,16 @@ class TTSTrack(MediaStreamTrack):
     async def recv(self):
         """获取下一帧音频并发送给客户端。"""
 
-        frame = await self.queue.get()
-        if frame is None:
+        data = await self.queue.get()
+        if data is None:
             raise asyncio.CancelledError
-        return frame
+        samples = np.frombuffer(data, dtype=np.int16)
+        audio = av.AudioFrame.from_ndarray(samples.reshape(1, -1), format="s16", layout="mono")
+        audio.sample_rate = TTS_SAMPLE_RATE
+        audio.pts = self.timestamp
+        audio.time_base = Fraction(1, TTS_SAMPLE_RATE)
+        self.timestamp += audio.samples
+        return audio
 
 
 @router.post("/offer")
@@ -95,8 +103,11 @@ async def offer(request: Request):
                 frame = await track.recv()
             except MediaStreamError:
                 break
-            # 将音频帧转换为原始 PCM 数据，并重采样到 ASR 需要的采样率
-            pcm = frame.to_ndarray().tobytes()
+            # 将音频帧转换为 int16 PCM，并重采样到 ASR 需要的采样率
+            samples = frame.to_ndarray()
+            if samples.dtype != np.int16:
+                samples = (samples * 32768).astype(np.int16)
+            pcm = samples.tobytes()
             if frame.sample_rate != SAMPLE_RATE:
                 pcm, _ = audioop.ratecv(pcm, 2, 1, frame.sample_rate, SAMPLE_RATE, None)
             frame_buffer += pcm
