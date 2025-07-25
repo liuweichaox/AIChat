@@ -5,13 +5,11 @@ from fastapi.responses import RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from api.routes import router as api_router
-from api.audio_ws import router as ws_router
 from api.webrtc import router as rtc_router
 from api.control_ws import router as ctrl_router
 
 app = FastAPI()
 app.include_router(api_router)
-app.include_router(ws_router)
 app.include_router(rtc_router)
 app.include_router(ctrl_router)
 
