@@ -12,8 +12,9 @@ async def transcribe(audio_bytes: bytes) -> str:
     """将 16 位 PCM 音频转换为文本。"""
 
     # 先保存原始音频，便于调试或后续使用
-    os.makedirs("recordings", exist_ok=True)
-    path = f"recordings/{uuid.uuid4().hex}.wav"
+    ASR_DIR = "asr_recordings"
+    os.makedirs(ASR_DIR, exist_ok=True)
+    path = f"{ASR_DIR}/{uuid.uuid4().hex}.wav"
     with wave.open(path, "wb") as wf:
         wf.setnchannels(1)
         wf.setsampwidth(2)
