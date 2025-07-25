@@ -8,7 +8,7 @@ import av
 import numpy as np
 import webrtcvad
 from aiortc import RTCPeerConnection, RTCSessionDescription
-from aiortc.mediastreams import MediaStreamTrack
+from aiortc.mediastreams import MediaStreamTrack, MediaStreamError
 from fastapi import APIRouter, Request
 
 from services.asr_service import transcribe
@@ -93,7 +93,10 @@ async def offer(request: Request):
         if track.kind != "audio":
             return
         while True:
-            frame = await track.recv()
+            try:
+                frame = await track.recv()
+            except MediaStreamError:
+                break
             # 将音频帧转换为原始 PCM 数据
             pcm = frame.to_ndarray().tobytes()
             frame_buffer += pcm

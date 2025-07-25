@@ -2,7 +2,8 @@
 
 This example shows a simple ChatGPT-like voice conversation. Audio is streamed
 between the browser and server using WebRTC. Each audio segment is saved to the
-`recordings/` directory before being transcribed.
+`recordings/` directory before being transcribed. Speech synthesized by the TTS
+service is stored under `tts_recordings/` for later playback.
 
 ## Setup
 
