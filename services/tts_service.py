@@ -4,7 +4,7 @@ import os
 import uuid
 import edge_tts
 
-VOICE = "zh-CN-XiaoxiaoNeural"
+VOICE = "zh-CN-liaoning-XiaobeiNeural"
 
 
 async def synthesize(text: str) -> bytes:
