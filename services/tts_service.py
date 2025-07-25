@@ -5,7 +5,7 @@ import uuid
 import edge_tts
 
 TTS_DIR = "tts_recordings"
-VOICE = "zh-CN-liaoning-XiaobeiNeural"
+VOICE = "zh-CN-XiaoxiaoNeural"
 
 
 async def synthesize(text: str) -> bytes:
