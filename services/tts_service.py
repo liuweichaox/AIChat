@@ -7,14 +7,14 @@ import edge_tts
 
 
 VOICE = "zh-CN-XiaoxiaoNeural"
-EDGE_FORMAT = "raw-16khz-16bit-mono-pcm"
-SAMPLE_RATE = 16000
+TTS_DIR = "tts_recordings"
+SAMPLE_RATE = 48000
 
 
 async def synthesize(text: str) -> bytes:
     """将文本一次性合成为语音并返回 WAV 数据，并保存文件。"""
     communicator = edge_tts.Communicate(
-        text=text, voice=VOICE, output_format=EDGE_FORMAT
+        text=text, voice=VOICE
     )
     os.makedirs(TTS_DIR, exist_ok=True)
     output_path = f"{TTS_DIR}/{uuid.uuid4()}.wav"
@@ -33,7 +33,7 @@ async def synthesize(text: str) -> bytes:
 async def synthesize_stream(text: str):
     """异步生成语音数据块，用于流式播放，同时保存文件。"""
     communicator = edge_tts.Communicate(
-        text=text, voice=VOICE, output_format=EDGE_FORMAT
+        text=text, voice=VOICE
     )
     os.makedirs(TTS_DIR, exist_ok=True)
     output_path = f"{TTS_DIR}/{uuid.uuid4()}.wav"
