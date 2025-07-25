@@ -27,35 +27,36 @@
     <div v-if="error" class="error">⚠️ {{ error }}</div>
   </div>
 
-  <script type="module">
-    import { createApp, ref } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
+    <script type="module">
+      import { createApp, ref } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
 
-    createApp({
-      setup() {
-        const reply = ref([])
-        const history = ref([])
-        const userText = ref('')
-        const recording = ref(false)
-        const listening = ref(false)
-        const typing = ref(false)
-        const error = ref(null)
-        let ws
-        let audioCtx
-        let processor
-        let stream
-        function playAudio(hex) {
-          const bytes = new Uint8Array(hex.match(/.{1,2}/g).map(b => parseInt(b, 16)))
-          const blob = new Blob([bytes], { type: 'audio/wav' })
-          const url = URL.createObjectURL(blob)
-          const audio = new Audio(url)
-          audio.onended = () => {
-            setTimeout(() => {
-              listening.value = true
-              userText.value = ''
-            }, 1000)
+      createApp({
+        setup() {
+          const reply = ref([])
+          const history = ref([])
+          const userText = ref('')
+          const recording = ref(false)
+          const listening = ref(false)
+          const typing = ref(false)
+          const error = ref(null)
+          let pc
+          let ctrl
+          let ttsChannel
+          let localStream
+
+          function playAudio(hex) {
+            const bytes = new Uint8Array(hex.match(/.{1,2}/g).map(b => parseInt(b, 16)))
+            const blob = new Blob([bytes], { type: 'audio/wav' })
+            const url = URL.createObjectURL(blob)
+            const audio = new Audio(url)
+            audio.onended = () => {
+              setTimeout(() => {
+                listening.value = true
+                userText.value = ''
+              }, 1000)
+            }
+            audio.play()
           }
-          audio.play()
-        }
 
         function typeReply(text) {
           reply.value = []
@@ -80,47 +81,45 @@
           listening.value = true
           error.value = null
 
-          ws = new WebSocket(`ws://${location.host}/ws/audio`)
-          ws.binaryType = 'arraybuffer'
-          ws.onmessage = (event) => {
-            const msg = JSON.parse(event.data)
-            if (msg.type === 'transcript') {
-              userText.value = msg.data
-              listening.value = false
-              history.value.push({ role: 'user', text: msg.data })
-            } else if (msg.type === 'text') {
-              typeReply(msg.data)
-            } else if (msg.type === 'audio') {
-              playAudio(msg.data)
-            }
-          }
-          ws.onclose = () => {
-            recording.value = false
-            listening.value = false
-          }
+          ctrl = new WebSocket(`ws://${location.host}/ws/control`)
 
-          stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-          audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 })
-          await audioCtx.audioWorklet.addModule('/static/recorderWorklet.js')
-          const source = audioCtx.createMediaStreamSource(stream)
-          processor = new AudioWorkletNode(audioCtx, 'recorder')
-          processor.port.onmessage = (e) => {
-            if (!recording.value || !listening.value) return
-            if (ws.readyState === WebSocket.OPEN) {
-              ws.send(e.data.buffer)
-            } else {
-              console.warn('WebSocket not open:', ws.readyState)
+          ctrl.onopen = async () => {
+            pc = new RTCPeerConnection()
+            ttsChannel = pc.createDataChannel('tts')
+            ttsChannel.onmessage = (e) => {
+              const msg = JSON.parse(e.data)
+              if (msg.type === 'transcript') {
+                userText.value = msg.data
+                listening.value = false
+                history.value.push({ role: 'user', text: msg.data })
+              } else if (msg.type === 'text') {
+                typeReply(msg.data)
+              } else if (msg.type === 'audio') {
+                playAudio(msg.data)
+              }
             }
+
+            localStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+            localStream.getTracks().forEach(t => pc.addTrack(t, localStream))
+
+            const offer = await pc.createOffer()
+            await pc.setLocalDescription(offer)
+
+            const resp = await fetch('/rtc/offer', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(pc.localDescription)
+            })
+            const ans = await resp.json()
+            await pc.setRemoteDescription(new RTCSessionDescription(ans))
+            ctrl.send(JSON.stringify({ type: 'register', id: ans.id }))
           }
-          source.connect(processor)
-          processor.connect(audioCtx.destination)
         }
 
         function stopCall() {
-          ws?.close()
-          processor?.disconnect()
-          stream?.getTracks().forEach(t => t.stop())
-          audioCtx?.close()
+          ctrl?.close()
+          pc?.close()
+          localStream?.getTracks().forEach(t => t.stop())
           recording.value = false
         }
 
