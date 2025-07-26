@@ -78,27 +78,6 @@ html {
   background: #111;
 }
 
-.history.subtitles {
-  position: absolute;
-  left: 50%;
-  bottom: 2vh;
-  transform: translateX(-50%);
-  background: rgba(30, 30, 30, 0.85);
-  color: #fff;
-  padding: 1em 2em;
-  border-radius: 1.5em;
-  max-width: 90vw;
-  width: auto;
-  max-height: 18vh;
-  min-height: 2.5em;
-  overflow-y: auto;
-  font-size: 1.5em;
-  /* larger subtitles */
-  text-align: center;
-  box-shadow: 0 2px 8px #0002;
-  pointer-events: none;
-}
-
 .history.article {
   max-width: 75vw;
   margin: 1em auto;
@@ -213,10 +192,5 @@ html {
   .local-video,
   .remote-video {
     max-width: 98vw;
-  }
-
-  .history.subtitles {
-    max-width: 96vw;
-    font-size: 1em;
   }
 }
