@@ -6,10 +6,12 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from api.routes import router as api_router
 from api.websocket import router as ws_router
+from api.rtc import router as rtc_router
 
 app = FastAPI()
 app.include_router(api_router)
 app.include_router(ws_router)
+app.include_router(rtc_router)
 
 app.mount("/static", StaticFiles(directory="frontend"), name="static")
 

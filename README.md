@@ -28,3 +28,4 @@ python main.py
 ```
 
 Open `http://localhost:8000/` in the browser and allow microphone access.
+Click the **Video** button to establish a WebRTC connection and stream your webcam to the server. You can switch the video on or off without affecting the voice conversation.

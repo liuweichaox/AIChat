@@ -133,6 +133,18 @@ button.icon {
   flex-wrap: wrap;
 }
 
+.video-container {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.video-container video {
+  width: 240px;
+  border-radius: var(--radius);
+  background: #000;
+}
+
 .hidden {
   display: none;
 }
