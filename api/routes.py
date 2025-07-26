@@ -1,5 +1,6 @@
 """提供给前端使用的 HTTP 接口。"""
 
+from edge_tts import VoicesManager
 from fastapi import APIRouter, UploadFile, File
 from fastapi.responses import JSONResponse, StreamingResponse
 from services.asr_service import transcribe
@@ -43,3 +44,42 @@ async def tts_endpoint(payload: dict):
     text = payload.get("text")
     audio_bytes = await synthesize(text)
     return JSONResponse({"audio": audio_bytes.hex()})
+
+def extract_voice_info(voice):
+    return {
+        "Name":  voice["Name"],
+        "ShortName": voice["ShortName"],
+        "Gender": voice["Gender"],
+        "Locale":  voice["Locale"],
+        "SuggestedCodec": voice["SuggestedCodec"],
+        "FriendlyName": voice["FriendlyName"],
+        "Status": voice["Status"],
+        "VoiceTag": voice["VoiceTag"],
+        "Language": voice["Language"],
+    }
+
+@router.get("/voices")
+async def get_voices():
+    manager = await VoicesManager.create()
+    #
+    #  [{
+    #     "Name": "Microsoft Server Speech Text to Speech Voice (af-ZA, AdriNeural)",
+    #     "ShortName": "af-ZA-AdriNeural",
+    #     "Gender": "Female",
+    #     "Locale": "af-ZA",
+    #     "SuggestedCodec": "audio-24khz-48kbitrate-mono-mp3",
+    #     "FriendlyName": "Microsoft Adri Online (Natural) - Afrikaans (South Africa)",
+    #     "Status": "GA",
+    #     "VoiceTag": {
+    #     "ContentCategories": [
+    #         "General"
+    #     ],
+    #     "VoicePersonalities": [
+    #         "Friendly",
+    #         "Positive"
+    #     ]
+    #     },
+    #     "Language": "af"
+    # }]
+    result = [extract_voice_info(v) for v in manager.voices]
+    return result
