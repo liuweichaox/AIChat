@@ -89,6 +89,8 @@ async def audio_endpoint(websocket: WebSocket):
 
                                 listening = False
                                 await stream_tts(websocket, reply_text)
+                                await websocket.send_text(json.dumps({"type": "end"}))
+                                vad_buffer.clear()
                                 listening = True
 
                         silence = 0
@@ -115,6 +117,8 @@ async def audio_endpoint(websocket: WebSocket):
 
                             listening = False
                             await stream_tts(websocket, reply_text)
+                            await websocket.send_text(json.dumps({"type": "end"}))
+                            vad_buffer.clear()
                             listening = True
 
                 elif payload.get("type") in {"close", "stop"}:

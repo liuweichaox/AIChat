@@ -138,7 +138,7 @@ createApp({
       workletNode = new AudioWorkletNode(audioCtx, 'pcm-processor', { numberOfInputs: 1, numberOfOutputs: 0 })
       workletNode.port.onmessage = (ev) => {
         // 这里的 ev.data 是你在 processor 里 postMessage 上来的 PCM Int16/Float32 等
-        if (ws && ws.readyState === WebSocket.OPEN) {
+        if (ws && ws.readyState === WebSocket.OPEN && listening.value) {
           // 注意：如果你传来的是 Float32Array，需要转换成 ArrayBuffer/Int16 再发
           ws.send(ev.data.buffer || ev.data)
         }
