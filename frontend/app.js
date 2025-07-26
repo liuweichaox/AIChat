@@ -10,7 +10,6 @@ createApp({
     const listening = ref(false)
     const typing = ref(false)
     const error = ref(null)
-    const showSubtitles = ref(true)
     const ttsMuted = ref(false)
     const videoEnabled = ref(false)
     const voices = ref([])
@@ -213,7 +212,6 @@ createApp({
     }
 
 
-    function toggleSubtitles() { showSubtitles.value = !showSubtitles.value }
     function toggleTTS() {
       ttsMuted.value = !ttsMuted.value
       if (audioEl) audioEl.muted = ttsMuted.value
@@ -286,8 +284,8 @@ createApp({
 
     return {
       lang, userInput, history, recording, listening, typing, error,
-      toggleMic, toggleSubtitles, toggleTTS, onSendText, onVoiceChange,
-      historyEl, showSubtitles, ttsMuted, localVideo, remoteVideo, videoEnabled, toggleVideo,
+      toggleMic, toggleTTS, onSendText, onVoiceChange,
+      historyEl, ttsMuted, localVideo, remoteVideo, videoEnabled, toggleVideo,
       voices, voice, speakingIndex
     }
   }
