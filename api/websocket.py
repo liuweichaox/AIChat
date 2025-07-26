@@ -135,5 +135,9 @@ async def audio_endpoint(websocket: WebSocket):
 
     except WebSocketDisconnect:
         print("WebSocket disconnected")
+        await websocket.close()
+        return
     except Exception as e:
         print(f"WebSocket error: {e}")
+        await websocket.close()
+        return
