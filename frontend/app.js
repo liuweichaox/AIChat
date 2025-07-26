@@ -229,7 +229,7 @@ createApp({
       }
       audioCtx = null
 
-      try { if (mediaSource && mediaSource.readyState === 'open') mediaSource.endOfStream() } catch { }
+      try { if (mediaSource && mediaSource.readyState === WebSocket.OPEN) mediaSource.endOfStream() } catch { }
       mediaSource = null
       sourceBuffer = null
       audioEl = null
