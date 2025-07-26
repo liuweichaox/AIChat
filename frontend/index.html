@@ -32,6 +32,32 @@
             <line x1="1" y1="1" x2="23" y2="23"></line>
           </svg>
         </button>
+        <!-- TTS 音量控制 -->
+        <button class="icon-btn" @click="toggleTTS"
+          :aria-label="lang==='zh' ? (ttsMuted ? '取消静音' : '静音') : (ttsMuted ? 'Unmute' : 'Mute')"
+          :title="lang==='zh' ? (ttsMuted ? '取消静音' : '静音') : (ttsMuted ? 'Unmute' : 'Mute')">
+          <svg v-if="!ttsMuted" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+            <path d="M19.07 4.93a11 11 0 0 1 0 15.57" />
+          </svg>
+          <svg v-else width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+            <line x1="23" y1="9" x2="17" y2="15" />
+            <line x1="17" y1="9" x2="23" y2="15" />
+          </svg>
+        </button>
+        <!-- 对话开关 -->
+        <button class="icon-btn" @click="toggleChat"
+          :aria-label="lang==='zh' ? (showChat ? '隐藏对话' : '显示对话') : (showChat ? 'Hide Chat' : 'Show Chat')"
+          :title="lang==='zh' ? (showChat ? '隐藏对话' : '显示对话') : (showChat ? 'Hide Chat' : 'Show Chat')">
+          <svg v-if="showChat" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+          </svg>
+          <svg v-else width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 4h16v12H5.17L4 17.17V4z" />
+          </svg>
+        </button>
         <!-- 语言切换 -->
         <select v-model="lang" class="lang-selector" title="Language">
           <option value="zh">中文</option>
@@ -44,7 +70,11 @@
       <div class="video-box" v-if="videoEnabled">
         <video ref="localVideo" class="local-video" autoplay muted playsinline></video>
       </div>
-      <div v-if="showSubtitles" class="history subtitles" ref="historyEl">
+      <div v-if="showSubtitles" class="subtitles">
+        <span>{{ subtitle }}</span>
+        <span class="cursor" v-if="subtitleTyping">▋</span>
+      </div>
+      <div v-if="showChat" class="history chat-history" ref="historyEl">
         <div v-for="(msg, idx) in history" :key="idx" :class="['message', msg.role]">
           <template v-if="msg.role === 'bot' && Array.isArray(msg.tokens)">
             <span v-html="renderMarkdown(tokensToText(msg.tokens))"></span>
@@ -58,6 +88,7 @@
           </template>
         </div>
       </div>
+      <div v-else class="document-view" v-html="renderMarkdown(lastBotText)"></div>
     </div>
 
     <form class="chat-input-bar" @submit.prevent="onSendText">

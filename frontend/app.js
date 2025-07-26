@@ -10,6 +10,10 @@ createApp({
     const typing = ref(false)
     const error = ref(null)
     const showSubtitles = ref(true)
+    const showChat = ref(true)
+    const ttsMuted = ref(false)
+    const subtitle = ref('')
+    const subtitleTyping = ref(false)
     const videoEnabled = ref(false)
 
     const historyEl = ref(null)
@@ -39,12 +43,22 @@ createApp({
     function renderMarkdown(text) {
       return window.marked.parse(text || '')
     }
+    const lastBotText = () => {
+      for (let i = history.value.length - 1; i >= 0; i--) {
+        const m = history.value[i]
+        if (m.role === 'bot') {
+          return Array.isArray(m.tokens) ? tokensToText(m.tokens) : (m.text || '')
+        }
+      }
+      return ''
+    }
 
     // 下行播放
     function resetMediaSourceForNewUtterance() {
       mediaSource = new MediaSource()
       audioEl = new Audio()
       audioEl.autoplay = true
+      audioEl.muted = ttsMuted.value
       audioEl.src = URL.createObjectURL(mediaSource)
       audioEl.onended = () => {
         if (ws && ws.readyState === WebSocket.OPEN) {
@@ -97,6 +111,20 @@ createApp({
       }, 30) // 速度略快
     }
 
+    function typeSubtitle(text) {
+      subtitle.value = ''
+      subtitleTyping.value = true
+      let i = 0
+      const timer = setInterval(() => {
+        subtitle.value += text[i]
+        i++
+        if (i >= text.length) {
+          clearInterval(timer)
+          subtitleTyping.value = false
+        }
+      }, 30)
+    }
+
     // 发送文本
     function onSendText() {
       if (!userInput.value.trim()) return
@@ -132,8 +160,10 @@ createApp({
           } else if (msg.type === 'llm_reply') {
             listening.value = false
             typeReply(msg.data)
+            typeSubtitle(msg.data)
           } else if (msg.type === 'tts_begin') {
             listening.value = false
+            subtitle.value = ''
             resetMediaSourceForNewUtterance()
           } else if (msg.type === 'tts_end') {
             finalizeMediaSource()
@@ -183,6 +213,11 @@ createApp({
 
 
     function toggleSubtitles() { showSubtitles.value = !showSubtitles.value }
+    function toggleChat() { showChat.value = !showChat.value }
+    function toggleTTS() {
+      ttsMuted.value = !ttsMuted.value
+      if (audioEl) audioEl.muted = ttsMuted.value
+    }
     async function toggleMic() {
       if (recording.value) stopCall()
       else {
@@ -240,9 +275,10 @@ createApp({
 
     return {
       lang, userInput, history, recording, listening, typing, error,
-      toggleMic, toggleSubtitles, onSendText,
-      historyEl, showSubtitles, localVideo, remoteVideo, videoEnabled, toggleVideo,
-      tokensToText, renderMarkdown
+      toggleMic, toggleSubtitles, toggleChat, toggleTTS, onSendText,
+      historyEl, showSubtitles, showChat, ttsMuted, subtitle, subtitleTyping,
+      localVideo, remoteVideo, videoEnabled, toggleVideo,
+      tokensToText, renderMarkdown, lastBotText
     }
   }
 }).mount('#app')

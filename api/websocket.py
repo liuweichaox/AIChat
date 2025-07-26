@@ -106,6 +106,17 @@ async def audio_endpoint(websocket: WebSocket):
                     audio_buffer.clear()
                     vad_buffer.clear()
                     video_frames.clear()
+                elif payload.get("type") == "text":
+                    text = payload.get("data", "")
+                    if text.strip():
+                        listening = False
+                        vad_buffer.clear()
+                        audio_buffer.clear()
+                        video_frames.clear()
+
+                        llm_reply = await full_reply(text)
+                        await websocket.send_text(json.dumps({"type": "llm_reply", "data": llm_reply}))
+                        await stream_tts(websocket, llm_reply)
 
     except WebSocketDisconnect:
         print("WebSocket disconnected")
