@@ -2,13 +2,12 @@
 
 import os
 import uuid
-import wave
 import edge_tts
 
 
 VOICE = "zh-CN-XiaoxiaoNeural"
 TTS_DIR = "tts_recordings"
-SAMPLE_RATE = 16000
+SAMPLE_RATE = 48000
 
 
 async def synthesize(text: str) -> bytes:
@@ -17,16 +16,13 @@ async def synthesize(text: str) -> bytes:
         text=text, voice=VOICE
     )
     os.makedirs(TTS_DIR, exist_ok=True)
-    output_path = f"{TTS_DIR}/{uuid.uuid4()}.wav"
+    output_path = f"{TTS_DIR}/{uuid.uuid4()}.mp3"
     audio_bytes = b""
     async for chunk in communicator.stream():
         if chunk["type"] == "audio":
             audio_bytes += chunk["data"]
-    with wave.open(output_path, "wb") as wf:
-        wf.setnchannels(1)
-        wf.setsampwidth(2)
-        wf.setframerate(SAMPLE_RATE)
-        wf.writeframes(audio_bytes)
+    with open(output_path, "wb") as wf:
+        wf.write(audio_bytes)
     return audio_bytes
 
 
@@ -36,13 +32,10 @@ async def synthesize_stream(text: str):
         text=text, voice=VOICE
     )
     os.makedirs(TTS_DIR, exist_ok=True)
-    output_path = f"{TTS_DIR}/{uuid.uuid4()}.wav"
-    with wave.open(output_path, "wb") as wf:
-        wf.setnchannels(1)
-        wf.setsampwidth(2)
-        wf.setframerate(SAMPLE_RATE)
+    output_path = f"{TTS_DIR}/{uuid.uuid4()}.mp3"
+    with open(output_path, "wb") as wf:
         async for chunk in communicator.stream():
             if chunk["type"] == "audio":
                 data = chunk["data"]
-                wf.writeframes(data)
+                wf.write(data)
                 yield data
