@@ -220,27 +220,3 @@ html {
     font-size: 1em;
   }
 }
-
-.sync-subtitle {
-  position: fixed;
-  left: 50%;
-  bottom: 70px;
-  transform: translateX(-50%);
-  background: rgba(30, 30, 30, 0.8);
-  color: #fff;
-  font-size: 1.6rem;
-  padding: 10px 32px;
-  border-radius: 24px;
-  pointer-events: none;
-  z-index: 10;
-  min-width: 360px;
-  max-width: 90vw;
-  text-align: center;
-  box-shadow: 0 4px 24px 0 rgba(0, 0, 0, 0.20);
-}
-
-.sync-subtitle .highlight {
-  color: #ffe082;
-  font-weight: bold;
-  background: none;
-}
