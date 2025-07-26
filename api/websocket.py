@@ -10,7 +10,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from services.asr_service import transcribe
 from services.llm_service import full_reply
-from services.tts_service import synthesize_stream, SAMPLE_RATE as TTS_SAMPLE_RATE
+from services.tts_service import synthesize_stream
 from services.buffers import audio_buffer, video_frames
 
 router = APIRouter(prefix="/ws")
@@ -24,17 +24,7 @@ vad = webrtcvad.Vad(3)
 
 async def stream_tts(websocket: WebSocket, text: str):
     """把 TTS PCM 重采样成 48k 裸 PCM 再实时推给前端"""
-    resample_state = None
-    async for chunk in synthesize_stream(text):  # int16 mono @ TTS_SAMPLE_RATE
-        if TTS_SAMPLE_RATE != CLIENT_SAMPLE_RATE:
-            chunk, resample_state = audioop.ratecv(
-                chunk,               # 16-bit
-                2,                   # width=2 bytes
-                1,                   # mono
-                TTS_SAMPLE_RATE,
-                CLIENT_SAMPLE_RATE,  # -> 48000
-                resample_state
-            )
+    async for chunk in synthesize_stream(text):
         await websocket.send_bytes(chunk)
 
     # 结束标记
