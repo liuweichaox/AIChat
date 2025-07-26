@@ -6,11 +6,16 @@
   <title>语音助手</title>
   <link rel="stylesheet" href="/static/style.css" />
   <script type="module" src="https://unpkg.com/vue@3/dist/vue.esm-browser.js"></script>
+  <script type="module" src="/static/app.js"></script>
 </head>
 
 <body>
   <div id="app">
     <h1>欢迎使用语音助手，点击开始说话</h1>
+    <div class="video-container">
+      <video ref="localVideo" autoplay muted playsinline></video>
+      <video ref="remoteVideo" autoplay playsinline></video>
+    </div>
 
     <div class="controls">
       <button @click="toggleMic">
@@ -33,6 +38,11 @@
         </svg>
       </button>
 
+      <button class="icon secondary" @click="toggleVideo">
+        <span v-if="!videoEnabled">📹 视频</span>
+        <span v-else>⏹ 关闭视频</span>
+      </button>
+
       <span class="badge" v-if="recording && listening">在听你说话…</span>
       <span class="badge" v-if="typing">机器人回复中…</span>
     </div>
@@ -51,166 +61,6 @@
     <div v-if="error" class="error">⚠️ {{ error }}</div>
   </div>
 
-  <script type="module">
-    import { createApp, ref, nextTick } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
-    createApp({
-      setup() {
-        const reply = ref([])
-        const history = ref([])
-        const userText = ref('')
-        const recording = ref(false)
-        const listening = ref(false)
-        const typing = ref(false)
-        const error = ref(null)
-        const showSubtitles = ref(true)
-
-        const historyEl = ref(null)
-        let ws
-        let audioCtx
-        let localStream
-        let workletNode
-
-        function scrollToBottom() {
-          nextTick(() => {
-            if (historyEl.value) {
-              historyEl.value.scrollTop = historyEl.value.scrollHeight
-            }
-          })
-        }
-
-        function playAudio(data) {
-          if (!audioCtx) {
-            audioCtx = new AudioContext({ sampleRate: 48000 })
-          }
-          if (data.byteLength === 0) return
-          const pcm = new Int16Array(data)
-          const float = new Float32Array(pcm.length)
-          for (let i = 0; i < pcm.length; i++) float[i] = pcm[i] / 32768
-          const buffer = audioCtx.createBuffer(1, float.length, 48000)
-          buffer.copyToChannel(float, 0)
-          const source = audioCtx.createBufferSource()
-          source.buffer = buffer
-          source.connect(audioCtx.destination)
-          source.onended = () => {
-            setTimeout(() => {
-              listening.value = true
-              userText.value = ''
-            }, 300)
-          }
-          source.start()
-        }
-
-        function typeReply(text) {
-          reply.value = []
-          typing.value = true
-          let i = 0
-          const timer = setInterval(() => {
-            reply.value.push({ id: reply.value.length, text: text[i] })
-            scrollToBottom()
-            i++
-            if (i >= text.length) {
-              clearInterval(timer)
-              typing.value = false
-              history.value.push({ role: 'bot', text })
-              scrollToBottom()
-            }
-          }, 120)
-        }
-
-        async function startCall() {
-          reply.value = []
-          userText.value = ''
-          recording.value = true
-          listening.value = true
-          error.value = null
-          scrollToBottom()
-
-          ws = new WebSocket(`ws://${location.host}/ws/audio`)
-          ws.binaryType = 'arraybuffer'
-          ws.onclose = () => { stopCall() }
-          ws.onerror = (e) => { error.value = 'WebSocket错误'; console.error(e) }
-
-          ws.onmessage = (e) => {
-            if (typeof e.data === 'string') {
-              const msg = JSON.parse(e.data)
-              if (msg.type === 'transcript') {
-                userText.value = msg.data
-                listening.value = false
-                history.value.push({ role: 'user', text: msg.data })
-                scrollToBottom()
-              } else if (msg.type === 'text') {
-                typeReply(msg.data)
-              }
-            } else {
-              playAudio(e.data)
-            }
-          }
-
-          // 必须由用户手势触发
-          audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 })
-          await audioCtx.audioWorklet.addModule('/static/pcm-processor.js')
-
-          localStream = await navigator.mediaDevices.getUserMedia({ audio: true })
-          const source = audioCtx.createMediaStreamSource(localStream)
-
-          workletNode = new AudioWorkletNode(audioCtx, 'pcm-processor', { numberOfInputs: 1, numberOfOutputs: 0 })
-          workletNode.port.onmessage = (ev) => {
-            // ev.data: Int16Array
-            if (ws && ws.readyState === WebSocket.OPEN) {
-              ws.send(ev.data.buffer) // 直接发 ArrayBuffer
-            }
-          }
-
-          source.connect(workletNode)
-
-          // iOS / Safari 可能需要
-          if (audioCtx.state === 'suspended') {
-            await audioCtx.resume()
-          }
-        }
-
-        function stopCall() {
-          try {
-            ws && ws.readyState === WebSocket.OPEN && ws.close()
-          } catch { }
-          try {
-            workletNode && workletNode.disconnect()
-          } catch { }
-          try {
-            localStream?.getTracks().forEach(t => t.stop())
-          } catch { }
-          try {
-            audioCtx && audioCtx.close()
-          } catch { }
-          recording.value = false
-          listening.value = false
-        }
-
-        function toggleSubtitles() {
-          showSubtitles.value = !showSubtitles.value
-        }
-
-        async function toggleMic() {
-          if (recording.value) {
-            stopCall()
-          } else {
-            try {
-              await startCall()
-            } catch (err) {
-              console.error(err)
-              error.value = err?.message || String(err)
-              recording.value = false
-            }
-          }
-        }
-
-        return {
-          reply, history, userText, recording, listening, typing, error,
-          toggleMic, historyEl, showSubtitles, toggleSubtitles
-        }
-      }
-    }).mount('#app')
-  </script>
 </body>
 
 </html>
