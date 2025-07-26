@@ -143,7 +143,7 @@ createApp({
       audioEl.muted = ttsMuted.value
       audioEl.src = URL.createObjectURL(mediaSource)
       audioEl.onended = () => {
-        if (ws && ws.readyState === 'OPEN') {
+        if (ws && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'resume' }))
         }
         listening.value = true
