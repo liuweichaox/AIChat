@@ -188,35 +188,35 @@ createApp({
       ws.onmessage = (e) => {
         if (typeof e.data === 'string') {
           const msg = JSON.parse(e.data)
-        if (msg.type === 'asr_text') {
-          history.value.push({ role: 'user', text: msg.data })
-          listening.value = false
-          scrollToBottom()
-        } else if (msg.type === 'llm_reply') {
+          if (msg.type === 'asr_text') {
+            history.value.push({ role: 'user', text: msg.data })
+            listening.value = false
+            scrollToBottom()
+          } else if (msg.type === 'llm_reply') {
             listening.value = false
             typeReply(msg.data)
-        } else if (msg.type === 'tts_begin') {
-          listening.value = false
-          speakingIndex.value = history.value.length - 1
-          const m = history.value[speakingIndex.value]
-          if (m) {
-            m.spokenChars = 0
-            m.wordIndex = 0
-          }
-          resetMediaSourceForNewUtterance()
-        } else if (msg.type === 'word') {
-          const m = history.value[speakingIndex.value]
-          if (m && Array.isArray(m.wordTokenBounds)) {
-            if (m.wordIndex < m.wordTokenBounds.length) {
-              m.spokenChars = m.wordTokenBounds[m.wordIndex]
-              m.wordIndex++
+          } else if (msg.type === 'tts_begin') {
+            listening.value = false
+            speakingIndex.value = history.value.length - 1
+            const m = history.value[speakingIndex.value]
+            if (m) {
+              m.spokenChars = 0
+              m.wordIndex = 0
             }
-          }
-        } else if (msg.type === 'tts_end') {
-          finalizeMediaSource()
-          const m = history.value[speakingIndex.value]
-          if (m) m.spokenChars = m.tokens.length
-          speakingIndex.value = -1
+            resetMediaSourceForNewUtterance()
+          } else if (msg.type === 'word_boundary') {
+            const m = history.value[speakingIndex.value]
+            if (m && Array.isArray(m.wordTokenBounds)) {
+              if (m.wordIndex < m.wordTokenBounds.length) {
+                m.spokenChars = m.wordTokenBounds[m.wordIndex]
+                m.wordIndex++
+              }
+            }
+          } else if (msg.type === 'tts_end') {
+            finalizeMediaSource()
+            const m = history.value[speakingIndex.value]
+            if (m) m.spokenChars = m.tokens.length
+            speakingIndex.value = -1
           }
         } else {
           playTTSChunk(e.data)
