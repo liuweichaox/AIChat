@@ -19,18 +19,31 @@ SILENCE_LIMIT = int(0.8 / (VAD_FRAME_MS / 1000))              # 0.8秒静音为�
 vad = webrtcvad.Vad(3)
 
 async def stream_tts(websocket: WebSocket, text: str, voice: str):
-    """TTS文本流转音频发送，包含轮次边界"""
     await websocket.send_text(json.dumps({"type": "tts_begin"}))
+
+    last_pos = 0
+    spoken_text = ""
+
     async for chunk in synthesize_stream(text, voice):
         if chunk["type"] == "audio":
             await websocket.send_bytes(chunk["data"])
         elif chunk["type"] == "WordBoundary":
-            await websocket.send_text(json.dumps({
-                "type": "word_boundary",
-                "offset": chunk["offset"],
-                "duration": chunk["duration"],
-                "text": chunk["text"]
-            }))
+            segment = chunk["text"]
+            # 从 last_pos 位置开始找 chunk["text"] 在全文中的索引
+            idx = text.find(segment, last_pos)
+            if idx != -1:
+                current_pos = idx + len(segment)
+                delta_text = text[last_pos:current_pos]
+                spoken_text += delta_text
+                last_pos = current_pos
+
+                await websocket.send_text(json.dumps({
+                    "type": "word_boundary",
+                    "offset": chunk["offset"],
+                    "duration": chunk["duration"],
+                    "delta_text": delta_text,
+                    "spoken_text": spoken_text
+                }))
     await websocket.send_text(json.dumps({"type": "tts_end"}))
 
 
