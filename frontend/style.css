@@ -36,6 +36,7 @@ html {
   border-radius: 6px;
   border: 1px solid #eee;
 }
+
 .voice-selector {
   margin-left: 1em;
   border-radius: 6px;
@@ -91,7 +92,8 @@ html {
   max-height: 18vh;
   min-height: 2.5em;
   overflow-y: auto;
-  font-size: 1.5em; /* larger subtitles */
+  font-size: 1.5em;
+  /* larger subtitles */
   text-align: center;
   box-shadow: 0 2px 8px #0002;
   pointer-events: none;
@@ -161,9 +163,11 @@ html {
   text-align: left;
   color: #333;
 }
+
 .message.bot.playing {
   background: #f0f8ff;
 }
+
 .spoken {
   background: #fffbcc;
 }
@@ -215,4 +219,28 @@ html {
     max-width: 96vw;
     font-size: 1em;
   }
+}
+
+.sync-subtitle {
+  position: fixed;
+  left: 50%;
+  bottom: 70px;
+  transform: translateX(-50%);
+  background: rgba(30, 30, 30, 0.8);
+  color: #fff;
+  font-size: 1.6rem;
+  padding: 10px 32px;
+  border-radius: 24px;
+  pointer-events: none;
+  z-index: 10;
+  min-width: 360px;
+  max-width: 90vw;
+  text-align: center;
+  box-shadow: 0 4px 24px 0 rgba(0, 0, 0, 0.20);
+}
+
+.sync-subtitle .highlight {
+  color: #ffe082;
+  font-weight: bold;
+  background: none;
 }
