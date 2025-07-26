@@ -137,7 +137,7 @@ createApp({
       if (!userInput.value.trim()) return
       history.value.push({ role: 'user', text: userInput.value })
       if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'text', data: userInput.value }))
+        ws.send(JSON.stringify({ type: 'llm_search', data: userInput.value }))
       }
       userInput.value = ''
       scrollToBottom()
@@ -176,7 +176,7 @@ createApp({
             const m = history.value[speakingIndex.value]
             if (m) m.spokenChars = 0
             resetMediaSourceForNewUtterance()
-          } else if (msg.type === 'mark') {
+          } else if (msg.type === 'word') {
             const m = history.value[speakingIndex.value]
             if (m && Array.isArray(m.markBounds)) {
               const idx = parseInt((msg.name || 'm0').substring(1))
