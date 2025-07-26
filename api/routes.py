@@ -61,25 +61,5 @@ def extract_voice_info(voice):
 @router.get("/voices")
 async def get_voices():
     manager = await VoicesManager.create()
-    #
-    #  [{
-    #     "Name": "Microsoft Server Speech Text to Speech Voice (af-ZA, AdriNeural)",
-    #     "ShortName": "af-ZA-AdriNeural",
-    #     "Gender": "Female",
-    #     "Locale": "af-ZA",
-    #     "SuggestedCodec": "audio-24khz-48kbitrate-mono-mp3",
-    #     "FriendlyName": "Microsoft Adri Online (Natural) - Afrikaans (South Africa)",
-    #     "Status": "GA",
-    #     "VoiceTag": {
-    #     "ContentCategories": [
-    #         "General"
-    #     ],
-    #     "VoicePersonalities": [
-    #         "Friendly",
-    #         "Positive"
-    #     ]
-    #     },
-    #     "Language": "af"
-    # }]
     result = [extract_voice_info(v) for v in manager.voices]
     return result
