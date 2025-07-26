@@ -2,6 +2,7 @@ import asyncio
 import json
 import audioop
 import time
+import edge_tts
 import webrtcvad
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
@@ -23,14 +24,16 @@ vad = webrtcvad.Vad(3)
 async def stream_tts(websocket: WebSocket, text: str, voice: str):
     """TTS文本流转音频发送，包含轮次边界"""
     await websocket.send_text(json.dumps({"type": "tts_begin"}))
+    submaker  = edge_tts.SubMaker()
     async for chunk in synthesize_stream(text, voice):
         if chunk["type"] == "audio":
             await websocket.send_bytes(chunk["data"])
-        elif chunk["type"] == "mark":
+        elif chunk["type"] == "WordBoundary":
             await websocket.send_text(json.dumps({
-                "type": "mark",
-                "name": chunk["name"],
-                "audio_offset": chunk["audio_offset"] / 10000  # ms
+                "type": "word",
+                "offset": chunk["offset"],
+                "duration": chunk["duration"],
+                "text": chunk["text"]
             }))
     await websocket.send_text(json.dumps({"type": "tts_end"}))
 
@@ -114,7 +117,7 @@ async def audio_endpoint(websocket: WebSocket):
                     audio_buffer.clear()
                     vad_buffer.clear()
                     video_frames.clear()
-                elif payload.get("type") == "text":
+                elif payload.get("type") == "llm_search":
                     text = payload.get("data", "")
                     if text.strip():
                         listening = False
