@@ -4,8 +4,8 @@ from zhipuai import ZhipuAI
 import os
 import asyncio
 
-api_key = os.getenv("BIGMODEL_API_KEY")
-client = ZhipuAI(api_key=api_key)
+BIGMODEL_API_KEY =  "fe28433d565d40a5a1806ab43719e504.HHwmOUiDA4XPCDkk"
+client = ZhipuAI(api_key=BIGMODEL_API_KEY)
 
 def format_messages(user_text: str):
     """根据用户输入构造对话上下文。"""

@@ -8,7 +8,7 @@ import edge_tts
 
 VOICE = "zh-CN-XiaoxiaoNeural"
 TTS_DIR = "tts_recordings"
-SAMPLE_RATE = 48000
+SAMPLE_RATE = 16000
 
 
 async def synthesize(text: str) -> bytes:

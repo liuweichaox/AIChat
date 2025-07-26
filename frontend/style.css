@@ -1,134 +1,138 @@
-  * {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-  }
+:root {
+  --bg: #0f111a;
+  --fg: #e5e9f0;
+  --muted: #6b7280;
+  --accent: #3b82f6;
+  --error: #ef4444;
+  --card: #1a1c23;
+  --radius: 12px;
+  --shadow: 0 6px 24px rgba(0, 0, 0, .2);
+  --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
 
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-    background-color: #f4f4f4;
-    color: #333;
-    min-height: 100vh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 2rem;
-  }
+* {
+  box-sizing: border-box;
+}
 
-  #app {
-    width: 100%;
-    max-width: 640px;
-    background: white;
-    padding: 2rem;
-    border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.05);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-  }
+body {
+  margin: 0;
+  padding: 32px;
+  font-family: var(--font);
+  color: var(--fg);
+  background: var(--bg);
+}
 
-  #app.square {
-    aspect-ratio: 1 / 1;
-  }
+h1 {
+  margin: 0 0 16px;
+  font-size: 20px;
+  color: var(--muted);
+}
 
-  #app.square .history {
-    max-height: none;
-  }
-
-  h1 {
-    font-size: 1.6rem;
-    margin-bottom: 1.5rem;
-    color: #444;
-    text-align: center;
-  }
-
-
-.history {
-  width: 100%;
-  padding: 1rem;
-  background: #f0f2f5;
-  border-radius: 8px;
-  margin-bottom: 1.5rem;
-  font-size: 1.1rem;
-  line-height: 1.6;
+#app {
+  max-width: 720px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-  flex: 1;
-  max-height: 60vh;
+  gap: 16px;
+}
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+button {
+  border: 0;
+  border-radius: var(--radius);
+  padding: 10px 16px;
+  cursor: pointer;
+  font-size: 16px;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: var(--shadow);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+button.secondary {
+  background: var(--card);
+  color: var(--fg);
+}
+
+button.icon {
+  width: 42px;
+  height: 42px;
+  padding: 0;
+  justify-content: center;
+}
+
+.history {
+  max-height: 360px;
   overflow-y: auto;
+  border-radius: var(--radius);
+  background: var(--card);
+  padding: 16px;
+  box-shadow: var(--shadow);
 }
 
 .message {
-  max-width: 80%;
-  padding: 0.5rem 0.75rem;
+  padding: 8px 12px;
   border-radius: 8px;
+  margin-bottom: 8px;
+  line-height: 1.6;
   white-space: pre-wrap;
+  word-break: break-word;
 }
 
 .message.user {
-  align-self: flex-end;
-  background-color: #daf1fd;
+  background: rgba(59, 130, 246, .12);
+  color: #93c5fd;
 }
 
 .message.bot {
-  align-self: flex-start;
-  background-color: #ededed;
+  background: rgba(255, 255, 255, .04);
 }
 
+.token {
+  display: inline;
+}
 
-  .token {
-    display: inline;
-    white-space: pre-wrap;
-    word-break: break-word;
-  }
+.cursor {
+  display: inline-block;
+  width: 8px;
+  margin-left: 2px;
+  animation: blink 1s steps(1) infinite;
+}
 
-  .cursor {
-    display: inline-block;
-    width: 6px;
-    height: 1.2em;
-    background-color: #333;
-    animation: blink 1s step-end infinite;
-    margin-left: 2px;
+@keyframes blink {
+  50% {
+    opacity: 0;
   }
+}
 
-  @keyframes blink {
-    0%, 100% { opacity: 0; }
-    50% { opacity: 1; }
-  }
+.error {
+  color: var(--error);
+}
 
-  button {
-    padding: 0.8rem 1.6rem;
-    font-size: 1rem;
-    background-color: #10a37f;
-    color: white;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    transition: background-color 0.2s ease;
-    margin-bottom: 1rem;
-  }
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, .06);
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+}
 
-  button:hover {
-    background-color: #0e8a6d;
-  }
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 
-  button:disabled {
-    background-color: #ccc;
-    cursor: not-allowed;
-  }
-
-  .error {
-    color: #c0392b;
-    margin-top: 0.5rem;
-  }
-
-@media (max-width: 768px) {
-  #app {
-    padding: 1.5rem;
-  }
-
-  .history {
-    font-size: 1rem;
-  }
+.hidden {
+  display: none;
 }

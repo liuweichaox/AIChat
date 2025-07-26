@@ -9,27 +9,44 @@
 </head>
 
 <body>
-  <div id="app" :class="{ square: showSubtitles }">
-    <h1>欢迎使用语音助手，点击下方按钮开始对话</h1>
+  <div id="app">
+    <h1>欢迎使用语音助手，点击开始说话</h1>
 
-    <button @click="toggleSubtitles">
-      {{ showSubtitles ? '隐藏字幕' : '显示字幕' }}
-    </button>
+    <div class="controls">
+      <button @click="toggleMic">
+        <span v-if="!recording">🎙 开始</span>
+        <span v-else>⏹ 停止</span>
+      </button>
 
-    <div class="history" ref="historyEl" v-show="showSubtitles">
+      <button class="icon secondary" @click="toggleSubtitles" :title="showSubtitles ? '隐藏字幕' : '显示字幕'">
+        <!-- 眼睛 / 眼睛划线 SVG -->
+        <svg v-if="showSubtitles" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+          stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path>
+          <circle cx="12" cy="12" r="3"></circle>
+        </svg>
+        <svg v-else width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+          stroke-linecap="round" stroke-linejoin="round">
+          <path
+            d="M17.94 17.94A10.94 10.94 0 0 1 12 20c-7 0-11-8-11-8a21.76 21.76 0 0 1 5.06-6.94M9.9 4.24A10.94 10.94 0 0 1 12 4c7 0 11 8 11 8a21.83 21.83 0 0 1-3.19 4.62M1 1l22 22">
+          </path>
+        </svg>
+      </button>
+
+      <span class="badge" v-if="recording && listening">在听你说话…</span>
+      <span class="badge" v-if="typing">机器人回复中…</span>
+    </div>
+
+    <div class="history" ref="historyEl" :class="{ hidden: !showSubtitles }">
       <div v-for="(msg, idx) in history" :key="idx" :class="['message', msg.role]">
         {{ msg.text }}
       </div>
       <div class="message user" v-if="userText">{{ userText }}</div>
       <div class="message bot" v-if="reply.length">
-        <span v-for="token in reply" :key="token.id" class="token">{{ token.text }}</span><span class="cursor"
-          v-if="listening || typing">▋</span>
+        <span v-for="token in reply" :key="token.id" class="token">{{ token.text }}</span>
+        <span class="cursor" v-if="listening || typing">▋</span>
       </div>
     </div>
-
-    <button @click="toggleMic">
-      {{ recording ? '⏹ 停止' : '🎙 开始说话' }}
-    </button>
 
     <div v-if="error" class="error">⚠️ {{ error }}</div>
   </div>
@@ -38,34 +55,21 @@
     import { createApp, ref, nextTick } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
     createApp({
       setup() {
-        // 回复内容的 token 数组（逐字显示）
         const reply = ref([])
-        // 聊天历史记录，包含用户和机器人消息
         const history = ref([])
-        // 当前用户语音转文字的内容
         const userText = ref('')
-        // 是否正在录音（通话状态）
         const recording = ref(false)
-        // 是否处于“等待用户说话”状态
         const listening = ref(false)
-        // 是否正在逐字输出机器人回复
         const typing = ref(false)
-        // 错误信息
         const error = ref(null)
-        // 是否显示字幕
         const showSubtitles = ref(true)
-        // WebSocket 连接
-        let ws
-        // 音频处理相关对象
-        let audioCtx
-        let processor
-        let localStream
-        // 聊天记录容器元素
-        const historyEl = ref(null)
 
-        /**
-         * 将滚动条移到底部，始终显示最新消息
-         */
+        const historyEl = ref(null)
+        let ws
+        let audioCtx
+        let localStream
+        let workletNode
+
         function scrollToBottom() {
           nextTick(() => {
             if (historyEl.value) {
@@ -74,22 +78,14 @@
           })
         }
 
-        /**
-         * 播放从服务端返回的 PCM 音频数据
-         * @param {ArrayBuffer} data - PCM 数据
-         */
         function playAudio(data) {
           if (!audioCtx) {
             audioCtx = new AudioContext({ sampleRate: 48000 })
           }
-          if (data.byteLength === 0) {
-            return
-          }
+          if (data.byteLength === 0) return
           const pcm = new Int16Array(data)
           const float = new Float32Array(pcm.length)
-          for (let i = 0; i < pcm.length; i++) {
-            float[i] = pcm[i] / 32768
-          }
+          for (let i = 0; i < pcm.length; i++) float[i] = pcm[i] / 32768
           const buffer = audioCtx.createBuffer(1, float.length, 48000)
           buffer.copyToChannel(float, 0)
           const source = audioCtx.createBufferSource()
@@ -99,20 +95,15 @@
             setTimeout(() => {
               listening.value = true
               userText.value = ''
-            }, 1000)
+            }, 300)
           }
           source.start()
         }
 
-        /**
-         * 逐字显示机器人回复内容，并加入历史
-         * @param {string} text - 机器人回复文本
-         */
         function typeReply(text) {
           reply.value = []
           typing.value = true
           let i = 0
-          // 每150ms显示一个字符，速度与语音播放接近
           const timer = setInterval(() => {
             reply.value.push({ id: reply.value.length, text: text[i] })
             scrollToBottom()
@@ -120,19 +111,14 @@
             if (i >= text.length) {
               clearInterval(timer)
               typing.value = false
-              // 回复结束后加入历史
               history.value.push({ role: 'bot', text })
               scrollToBottom()
             }
-          }, 150)
+          }, 120)
         }
 
-        /**
-        * 开始一次语音会话，初始化 WebSocket
-         */
         async function startCall() {
           reply.value = []
-          history.value = []
           userText.value = ''
           recording.value = true
           listening.value = true
@@ -141,6 +127,9 @@
 
           ws = new WebSocket(`ws://${location.host}/ws/audio`)
           ws.binaryType = 'arraybuffer'
+          ws.onclose = () => { stopCall() }
+          ws.onerror = (e) => { error.value = 'WebSocket错误'; console.error(e) }
+
           ws.onmessage = (e) => {
             if (typeof e.data === 'string') {
               const msg = JSON.parse(e.data)
@@ -157,63 +146,68 @@
             }
           }
 
-          localStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+          // 必须由用户手势触发
           audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 })
+          await audioCtx.audioWorklet.addModule('/static/pcm-processor.js')
+
+          localStream = await navigator.mediaDevices.getUserMedia({ audio: true })
           const source = audioCtx.createMediaStreamSource(localStream)
-          processor = audioCtx.createScriptProcessor(4096, 1, 1)
-          source.connect(processor)
-          processor.connect(audioCtx.destination)
-          processor.onaudioprocess = (ev) => {
-            if (ws.readyState !== WebSocket.OPEN) return
-            const input = ev.inputBuffer.getChannelData(0)
-            const buf = new ArrayBuffer(input.length * 2)
-            const view = new DataView(buf)
-            for (let i = 0; i < input.length; i++) {
-              let s = Math.max(-1, Math.min(1, input[i]))
-              view.setInt16(i * 2, s * 0x7fff, true)
+
+          workletNode = new AudioWorkletNode(audioCtx, 'pcm-processor', { numberOfInputs: 1, numberOfOutputs: 0 })
+          workletNode.port.onmessage = (ev) => {
+            // ev.data: Int16Array
+            if (ws && ws.readyState === WebSocket.OPEN) {
+              ws.send(ev.data.buffer) // 直接发 ArrayBuffer
             }
-            ws.send(buf)
+          }
+
+          source.connect(workletNode)
+
+          // iOS / Safari 可能需要
+          if (audioCtx.state === 'suspended') {
+            await audioCtx.resume()
           }
         }
 
-        /**
-         * 停止语音会话，关闭连接和音频流
-         */
         function stopCall() {
-          ws?.close()
-          processor?.disconnect()
-          localStream?.getTracks().forEach(t => t.stop())
+          try {
+            ws && ws.readyState === WebSocket.OPEN && ws.close()
+          } catch { }
+          try {
+            workletNode && workletNode.disconnect()
+          } catch { }
+          try {
+            localStream?.getTracks().forEach(t => t.stop())
+          } catch { }
+          try {
+            audioCtx && audioCtx.close()
+          } catch { }
           recording.value = false
+          listening.value = false
         }
 
-        /**
-         * 切换字幕显示/隐藏
-         */
         function toggleSubtitles() {
           showSubtitles.value = !showSubtitles.value
         }
 
-        /**
-         * 切换麦克风（开始/停止会话）
-         */
         async function toggleMic() {
           if (recording.value) {
-            // 已在通话则停止
             stopCall()
           } else {
             try {
-              // 否则开始新会话
               await startCall()
             } catch (err) {
-              // 捕获异常并显示错误
-              error.value = err.message
+              console.error(err)
+              error.value = err?.message || String(err)
               recording.value = false
             }
           }
         }
 
-        // 暴露给模板的数据和方法
-        return { reply, history, userText, recording, listening, typing, error, toggleMic, historyEl, showSubtitles, toggleSubtitles }
+        return {
+          reply, history, userText, recording, listening, typing, error,
+          toggleMic, historyEl, showSubtitles, toggleSubtitles
+        }
       }
     }).mount('#app')
   </script>
