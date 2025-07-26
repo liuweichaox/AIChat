@@ -5,6 +5,7 @@ createApp({
     const lang = ref('zh')
     const userInput = ref('')
     const history = ref([])
+    const speakingIndex = ref(-1)
     const recording = ref(false)
     const listening = ref(false)
     const typing = ref(false)
@@ -12,6 +13,8 @@ createApp({
     const showSubtitles = ref(true)
     const ttsMuted = ref(false)
     const videoEnabled = ref(false)
+    const voices = ref([])
+    const voice = ref('zh-CN-XiaoxiaoNeural')
 
     const historyEl = ref(null)
     const localVideo = ref(null)
@@ -39,6 +42,29 @@ createApp({
     }
     function renderMarkdown(text) {
       return window.marked.parse(text || '')
+    }
+
+    function plainTextForMarks(text) {
+      return text.replace(/```.*?```/gs, '')
+        .replace(/`([^`]+)`/g, '$1')
+        .replace(/\*\*([^*]+)\*\*/g, '$1')
+        .replace(/\*([^*]+)\*/g, '$1')
+        .replace(/#+\s*(.*)/g, '$1')
+        .replace(/\n/g, ' ')
+    }
+
+    function computeMarkBounds(text) {
+      text = plainTextForMarks(text)
+      const pieces = text.split(/([。！？.!?])/)
+      const bounds = []
+      let idx = 0
+      for (const p of pieces) {
+        if (!p) continue
+        bounds.push(idx)
+        idx += p.length
+      }
+      bounds.push(idx)
+      return bounds
     }
 
     // 下行播放
@@ -83,7 +109,14 @@ createApp({
     // 打字机效果
     function typeReply(text) {
       typing.value = true
-      const msg = { role: 'bot', tokens: [], typing: true }
+      const msg = {
+        role: 'bot',
+        tokens: [],
+        typing: true,
+        text,
+        markBounds: computeMarkBounds(text),
+        spokenChars: 0
+      }
       history.value.push(msg)
       scrollToBottom()
       let i = 0
@@ -120,6 +153,9 @@ createApp({
 
       ws = new WebSocket(`ws://${location.host}/ws/audio`)
       ws.binaryType = 'arraybuffer'
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ type: 'voice', data: voice.value }))
+      }
 
       ws.onclose = () => { stopCall() }
       ws.onerror = (e) => { error.value = (lang.value === 'zh' ? 'WebSocket错误' : 'WebSocket error'); console.error(e) }
@@ -136,9 +172,23 @@ createApp({
             typeReply(msg.data)
           } else if (msg.type === 'tts_begin') {
             listening.value = false
+            speakingIndex.value = history.value.length - 1
+            const m = history.value[speakingIndex.value]
+            if (m) m.spokenChars = 0
             resetMediaSourceForNewUtterance()
+          } else if (msg.type === 'mark') {
+            const m = history.value[speakingIndex.value]
+            if (m && Array.isArray(m.markBounds)) {
+              const idx = parseInt((msg.name || 'm0').substring(1))
+              if (!isNaN(idx) && idx < m.markBounds.length) {
+                m.spokenChars = m.markBounds[idx]
+              }
+            }
           } else if (msg.type === 'tts_end') {
             finalizeMediaSource()
+            const m = history.value[speakingIndex.value]
+            if (m) m.spokenChars = m.tokens.length
+            speakingIndex.value = -1
           }
         } else {
           playTTSChunk(e.data)
@@ -188,6 +238,11 @@ createApp({
     function toggleTTS() {
       ttsMuted.value = !ttsMuted.value
       if (audioEl) audioEl.muted = ttsMuted.value
+    }
+    function onVoiceChange() {
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'voice', data: voice.value }))
+      }
     }
     async function toggleMic() {
       if (recording.value) stopCall()
@@ -242,13 +297,19 @@ createApp({
     }
     async function toggleVideo() { if (videoEnabled.value) stopVideo(); else await startVideo() }
 
-    onMounted(() => { startCall() })
+    onMounted(async () => {
+      startCall()
+      try {
+        const resp = await fetch('/api/voices')
+        voices.value = await resp.json()
+      } catch (err) { console.error(err) }
+    })
 
     return {
       lang, userInput, history, recording, listening, typing, error,
-      toggleMic, toggleSubtitles, toggleTTS, onSendText,
+      toggleMic, toggleSubtitles, toggleTTS, onSendText, onVoiceChange,
       historyEl, showSubtitles, ttsMuted, localVideo, remoteVideo, videoEnabled, toggleVideo,
-      tokensToText, renderMarkdown
+      tokensToText, renderMarkdown, voices, voice, speakingIndex
     }
   }
 }).mount('#app')

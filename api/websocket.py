@@ -8,7 +8,7 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from services.asr_service import transcribe
 from services.llm_service import full_reply
-from services.tts_service import synthesize_stream
+from services.tts_service import synthesize_stream, DEFAULT_VOICE
 from services.buffers import audio_buffer, video_frames
 
 router = APIRouter(prefix="/ws")
@@ -20,11 +20,18 @@ FRAME_BYTES = int(ASR_SAMPLE_RATE * VAD_FRAME_MS / 1000) * 2  # 16kHz * 20ms * 2
 SILENCE_LIMIT = int(0.8 / (VAD_FRAME_MS / 1000))              # 0.8秒静音为一句话断点
 vad = webrtcvad.Vad(3)
 
-async def stream_tts(websocket: WebSocket, text: str):
+async def stream_tts(websocket: WebSocket, text: str, voice: str):
     """TTS文本流转音频发送，包含轮次边界"""
     await websocket.send_text(json.dumps({"type": "tts_begin"}))
-    async for chunk in synthesize_stream(text):
-        await websocket.send_bytes(chunk)
+    async for chunk in synthesize_stream(text, voice):
+        if chunk["type"] == "audio":
+            await websocket.send_bytes(chunk["data"])
+        elif chunk["type"] == "mark":
+            await websocket.send_text(json.dumps({
+                "type": "mark",
+                "name": chunk["name"],
+                "audio_offset": chunk["audio_offset"] / 10000  # ms
+            }))
     await websocket.send_text(json.dumps({"type": "tts_end"}))
 
 
@@ -40,6 +47,7 @@ async def audio_endpoint(websocket: WebSocket):
     vad_buffer = bytearray()
     silence = 0
     listening = True
+    voice = DEFAULT_VOICE
 
     try:
         while True:
@@ -89,7 +97,7 @@ async def audio_endpoint(websocket: WebSocket):
                                 await websocket.send_text(json.dumps({"type": "asr_text", "data": transcript}))
                                 llm_reply = await full_reply(transcript)
                                 await websocket.send_text(json.dumps({"type": "llm_reply", "data": llm_reply}))
-                                await stream_tts(websocket, llm_reply)
+                                await stream_tts(websocket, llm_reply, voice)
 
                         silence = 0
             # 处理控制消息
@@ -116,7 +124,11 @@ async def audio_endpoint(websocket: WebSocket):
 
                         llm_reply = await full_reply(text)
                         await websocket.send_text(json.dumps({"type": "llm_reply", "data": llm_reply}))
-                        await stream_tts(websocket, llm_reply)
+                        await stream_tts(websocket, llm_reply, voice)
+                elif payload.get("type") == "voice":
+                    v = payload.get("data")
+                    if isinstance(v, str) and v:
+                        voice = v
 
     except WebSocketDisconnect:
         print("WebSocket disconnected")
