@@ -36,12 +36,14 @@
         <button class="icon-btn" @click="toggleTTS"
           :aria-label="lang==='zh' ? (ttsMuted ? '取消静音' : '静音') : (ttsMuted ? 'Unmute' : 'Mute')"
           :title="lang==='zh' ? (ttsMuted ? '取消静音' : '静音') : (ttsMuted ? 'Unmute' : 'Mute')">
-          <svg v-if="!ttsMuted" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg v-if="!ttsMuted" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
             <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
             <path d="M19.07 4.93a11 11 0 0 1 0 15.57" />
           </svg>
-          <svg v-else width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <svg v-else width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+            stroke-linecap="round" stroke-linejoin="round">
             <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
             <line x1="23" y1="9" x2="17" y2="15" />
             <line x1="17" y1="9" x2="23" y2="15" />
@@ -54,7 +56,7 @@
         </select>
         <!-- 语音选择 -->
         <select v-model="voice" @change="onVoiceChange" class="voice-selector" title="Voice">
-          <option v-for="v in voices" :key="v.ShortName" :value="v.ShortName">{{ v.FriendlyName }}</option>
+          <option v-for="v in voices" :key="v.ShortName" :value="v.ShortName">{{ v.ShortName }} - {{v.Gender}}</option>
         </select>
       </div>
     </div>
@@ -64,9 +66,12 @@
         <video ref="localVideo" class="local-video" autoplay muted playsinline></video>
       </div>
       <div v-if="showSubtitles" class="history subtitles" ref="historyEl">
-        <div v-for="(msg, idx) in history" :key="idx" :class="['message', msg.role, (idx===speakingIndex ? 'playing' : '')]">
+        <div v-for="(msg, idx) in history" :key="idx"
+          :class="['message', msg.role, (idx===speakingIndex ? 'playing' : '')]">
           <template v-if="msg.role === 'bot' && Array.isArray(msg.tokens)">
-            <span v-html="renderMarkdown(tokensToText(msg.tokens.slice(0, msg.spokenChars || 0)))" class="spoken"></span><span v-html="renderMarkdown(tokensToText(msg.tokens.slice(msg.spokenChars || 0)))"></span>
+            <span v-html="renderMarkdown(tokensToText(msg.tokens.slice(0, msg.spokenChars || 0)))"
+              class="spoken"></span><span
+              v-html="renderMarkdown(tokensToText(msg.tokens.slice(msg.spokenChars || 0)))"></span>
             <span class="cursor" v-if="msg.typing">▋</span>
           </template>
           <template v-else-if="msg.role === 'bot'">
