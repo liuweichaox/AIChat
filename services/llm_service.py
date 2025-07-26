@@ -9,8 +9,7 @@ client = ZhipuAI(api_key=BIGMODEL_API_KEY)
 def format_messages(user_text: str):
     """根据用户输入构造对话上下文。"""
     return [
-        {"role": "user", "content": "用中文和我对话"},
-        {"role": "user", "content": user_text},
+        {"role": "user", "content": user_text}
     ]
 
 async def full_reply(user_text: str) -> str:
