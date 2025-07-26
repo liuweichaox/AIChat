@@ -36,7 +36,7 @@ async def stream_tts(websocket: WebSocket, text: str, voice: str):
                 delta_text = text[last_pos:current_pos]
                 spoken_text += delta_text
                 last_pos = current_pos
-
+                print(delta_text)
                 await websocket.send_text(json.dumps({
                     "type": "word_boundary",
                     "offset": chunk["offset"],
