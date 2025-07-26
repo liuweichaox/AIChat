@@ -8,7 +8,6 @@ import edge_tts
 
 
 DEFAULT_VOICE = "zh-CN-XiaoxiaoNeural"
-TTS_DIR = "tts_recordings"
 
 def markdown_to_ssml(text: str) -> str:
     """Convert a Markdown string to basic SSML with <mark> tags."""
