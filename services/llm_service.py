@@ -1,7 +1,6 @@
 """调用智谱 AI 聊天接口的封装函数。"""
 
 from zhipuai import ZhipuAI
-import os
 import asyncio
 
 BIGMODEL_API_KEY =  "fe28433d565d40a5a1806ab43719e504.HHwmOUiDA4XPCDkk"

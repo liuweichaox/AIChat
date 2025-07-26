@@ -1,7 +1,5 @@
-import asyncio
 import json
 import audioop
-import time
 import edge_tts
 import webrtcvad
 
@@ -24,7 +22,6 @@ vad = webrtcvad.Vad(3)
 async def stream_tts(websocket: WebSocket, text: str, voice: str):
     """TTS文本流转音频发送，包含轮次边界"""
     await websocket.send_text(json.dumps({"type": "tts_begin"}))
-    submaker  = edge_tts.SubMaker()
     async for chunk in synthesize_stream(text, voice):
         if chunk["type"] == "audio":
             await websocket.send_bytes(chunk["data"])
