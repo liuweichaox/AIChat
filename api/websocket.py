@@ -10,7 +10,6 @@ from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from services.asr_service import transcribe
 from services.llm_service import full_reply
 from services.tts_service import synthesize_stream, DEFAULT_VOICE
-from services.buffers import audio_buffer, video_frames
 
 router = APIRouter(prefix="/ws")
 
@@ -48,6 +47,8 @@ async def audio_endpoint(websocket: WebSocket):
     await websocket.accept()
 
     vad_buffer = bytearray()
+    audio_buffer = bytearray()
+    video_frames = []
     silence = 0
     listening = True
     voice = DEFAULT_VOICE
