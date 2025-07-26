@@ -2,6 +2,7 @@ from fastapi import APIRouter, Request
 from aiortc import RTCPeerConnection, RTCSessionDescription
 from aiortc.contrib.media import MediaRelay
 import asyncio
+from services.buffers import video_frames
 
 router = APIRouter(prefix="/rtc")
 relay = MediaRelay()
@@ -23,8 +24,15 @@ async def offer(request: Request):
 
     @pc.on("track")
     def on_track(track):
-        if track.kind in {"audio", "video"}:
-            pc.addTrack(relay.subscribe(track))
+        """Only receive tracks from the client without sending them back."""
+        if track.kind == "video":
+            local = relay.subscribe(track)
+
+            async def consume():
+                async for frame in local.recv():
+                    video_frames.append(frame)
+
+            asyncio.create_task(consume())
 
     await pc.setRemoteDescription(offer)
     await pc.setLocalDescription(await pc.createAnswer())

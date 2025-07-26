@@ -1,4 +1,4 @@
-import { createApp, ref, nextTick } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
+import { createApp, ref, nextTick, onMounted } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
 
 createApp({
   setup() {
@@ -190,6 +190,10 @@ createApp({
         await startVideo()
       }
     }
+
+    onMounted(() => {
+      startCall()
+    })
 
     return {
       reply, history, userText, recording, listening, typing, error,

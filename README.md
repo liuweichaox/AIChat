@@ -27,5 +27,9 @@ export BIGMODEL_API_KEY=<your-api-key>
 python main.py
 ```
 
-Open `http://localhost:8000/` in the browser and allow microphone access.
-Click the **Video** button to establish a WebRTC connection and stream your webcam to the server. You can switch the video on or off without affecting the voice conversation.
+Open `http://localhost:8000/` in the browser and allow microphone access. The
+microphone starts automatically and the server listens for speech pauses before
+running ASR, LLM and TTS.
+
+Click the **Video** button if you want to stream your webcam. Video is received
+only; the server does not echo the stream back to the browser.
