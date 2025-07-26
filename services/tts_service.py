@@ -7,13 +7,17 @@ import edge_tts
 
 VOICE = "zh-CN-XiaoxiaoNeural"
 TTS_DIR = "tts_recordings"
+
+# Edge TTS 默认返回 MP3 数据，当前版本暂不支持通过 `output_format`
+# 参数指定返回 PCM。维持默认 MP3 输出并在需要时再解码。
 SAMPLE_RATE = 48000
 
 
 async def synthesize(text: str) -> bytes:
-    """将文本一次性合成为语音并返回 WAV 数据，并保存文件。"""
+    """将文本一次性合成为语音并返回 MP3 数据，并保存文件。"""
     communicator = edge_tts.Communicate(
-        text=text, voice=VOICE
+        text=text,
+        voice=VOICE,
     )
     os.makedirs(TTS_DIR, exist_ok=True)
     output_path = f"{TTS_DIR}/{uuid.uuid4()}.mp3"
@@ -27,9 +31,10 @@ async def synthesize(text: str) -> bytes:
 
 
 async def synthesize_stream(text: str):
-    """异步生成语音数据块，用于流式播放，同时保存文件。"""
+    """异步生成语音数据块（MP3），用于流式播放，同时保存文件。"""
     communicator = edge_tts.Communicate(
-        text=text, voice=VOICE
+        text=text,
+        voice=VOICE,
     )
     os.makedirs(TTS_DIR, exist_ok=True)
     output_path = f"{TTS_DIR}/{uuid.uuid4()}.mp3"
