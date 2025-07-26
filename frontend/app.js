@@ -90,7 +90,6 @@ createApp({
       })
     }
     function finalizeMediaSource() {
-      debugger
       if (mediaSource && mediaSource.readyState === "open" && !listening.value) {
         console.log("endOfStream")
         try { mediaSource.endOfStream() } catch (e) { }
