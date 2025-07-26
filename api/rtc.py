@@ -2,7 +2,6 @@ from fastapi import APIRouter, Request
 from aiortc import RTCPeerConnection, RTCSessionDescription
 from aiortc.contrib.media import MediaRelay
 import asyncio
-from services.buffers import video_frames
 
 router = APIRouter(prefix="/rtc")
 relay = MediaRelay()
@@ -15,6 +14,7 @@ async def offer(request: Request):
 
     pc = RTCPeerConnection()
     pcs.add(pc)
+    video_frames = []
 
     @pc.on("connectionstatechange")
     async def on_state_change():
