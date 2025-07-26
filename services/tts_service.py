@@ -14,14 +14,10 @@ async def synthesize(text: str) -> bytes:
         text=text,
         voice=VOICE
     )
-    os.makedirs(TTS_DIR, exist_ok=True)
-    output_path = f"{TTS_DIR}/{uuid.uuid4()}.wav"
     audio_bytes = b""
-    async for chunk in communicator.stream():
+    for chunk in communicator.stream_sync():
         if chunk["type"] == "audio":
             audio_bytes += chunk["data"]
-    with open(output_path, "wb") as wf:
-        wf.write(audio_bytes)
     return audio_bytes
 
 
@@ -31,11 +27,7 @@ async def synthesize_stream(text: str):
         text=text,
         voice=VOICE
     )
-    os.makedirs(TTS_DIR, exist_ok=True)
-    output_path = f"{TTS_DIR}/{uuid.uuid4()}.wav"
-    with open(output_path, "wb") as wf:
-        async for chunk in communicator.stream():
-            if chunk["type"] == "audio":
-                data = chunk["data"]
-                wf.write(data)
-                yield data
+    for chunk in communicator.stream_sync():
+        if chunk["type"] == "audio":
+            data = chunk["data"]
+            yield data

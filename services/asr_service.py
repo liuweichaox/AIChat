@@ -1,8 +1,4 @@
 """基于 FunASR 的语音识别工具函数。"""
-
-import os
-import uuid
-import wave
 import numpy as np
 from funasr import AutoModel
 
@@ -11,16 +7,6 @@ _model = AutoModel(model="paraformer-zh", trust_remote_code=True)
 
 async def transcribe(audio_bytes: bytes) -> str:
     """将 16 位 PCM 音频转换为文本。"""
-
-    # 先保存原始音频，便于调试或后续使用
-    ASR_DIR = "asr_recordings"
-    os.makedirs(ASR_DIR, exist_ok=True)
-    path = f"{ASR_DIR}/{uuid.uuid4().hex}.wav"
-    with wave.open(path, "wb") as wf:
-        wf.setnchannels(1)
-        wf.setsampwidth(2)
-        wf.setframerate(16000)
-        wf.writeframes(audio_bytes)
 
     # 将 int16 PCM 数据转换为 float32，并缩放到 [-1.0, 1.0]
     audio = np.frombuffer(audio_bytes, dtype=np.int16).astype(np.float32) / 32768.0
