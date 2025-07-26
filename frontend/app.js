@@ -16,12 +16,23 @@ createApp({
     const localVideo = ref(null)
     const remoteVideo = ref(null)
 
+    // ---- 音频相关（上行：AudioContext 推流，下行：MediaSource 播放）----
     let ws
     let audioCtx
     let localStream
     let workletNode
+
+    let mediaSource
+    let sourceBuffer
+    let audioEl
+    let mediaQueue = []
+
+    // ---- 视频相关 ----
     let pc
     let videoStream
+
+    // 你后端返回的编码：'audio/mpeg'（MP3）或 'audio/ogg; codecs=opus'
+    const DOWNSTREAM_MIME = 'audio/mpeg'  // 如果是 OGG 改成 'audio/ogg; codecs=opus'
 
     function scrollToBottom() {
       nextTick(() => {
@@ -31,28 +42,37 @@ createApp({
       })
     }
 
-    function playAudio(data) {
-      if (!audioCtx) {
-        audioCtx = new AudioContext({ sampleRate: 48000 })
-      }
-      if (data.byteLength === 0) return
-      const pcm = new Int16Array(data)
-      const float = new Float32Array(pcm.length)
-      for (let i = 0; i < pcm.length; i++) float[i] = pcm[i] / 32768
-      const buffer = audioCtx.createBuffer(1, float.length, 48000)
-      buffer.copyToChannel(float, 0)
-      const source = audioCtx.createBufferSource()
-      source.buffer = buffer
-      source.connect(audioCtx.destination)
-      source.onended = () => {
-        setTimeout(() => {
-          listening.value = true
-          userText.value = ''
-        }, 300)
-      }
-      source.start()
+    // ---------- 下行播放（MediaSource） ----------
+    function initMediaSource() {
+      if (mediaSource) return
+      mediaSource = new MediaSource()
+      audioEl = new Audio()
+      audioEl.autoplay = true
+      audioEl.src = URL.createObjectURL(mediaSource)
+
+      mediaSource.addEventListener('sourceopen', () => {
+        sourceBuffer = mediaSource.addSourceBuffer(DOWNSTREAM_MIME)
+        sourceBuffer.mode = 'sequence'
+        sourceBuffer.addEventListener('updateend', appendNextChunk)
+        appendNextChunk()
+      })
     }
 
+    function appendNextChunk() {
+      if (!sourceBuffer || sourceBuffer.updating) return
+      if (mediaQueue.length > 0) {
+        sourceBuffer.appendBuffer(mediaQueue.shift())
+      }
+    }
+
+    function playTTSChunk(chunk) {
+      if (!chunk || chunk.byteLength === 0) return
+      if (!mediaSource) initMediaSource()
+      mediaQueue.push(new Uint8Array(chunk))
+      appendNextChunk()
+    }
+
+    // ---------- 打字机式文字显示 ----------
     function typeReply(text) {
       reply.value = []
       typing.value = true
@@ -70,6 +90,7 @@ createApp({
       }, 120)
     }
 
+    // ---------- 建立通话（上行麦克风 + 下行 TTS） ----------
     async function startCall() {
       reply.value = []
       userText.value = ''
@@ -78,13 +99,16 @@ createApp({
       error.value = null
       scrollToBottom()
 
+      // 1) 连接 WebSocket（同一条通道：发 PCM，收 文本/音频）
       ws = new WebSocket(`ws://${location.host}/ws/audio`)
       ws.binaryType = 'arraybuffer'
+
       ws.onclose = () => { stopCall() }
       ws.onerror = (e) => { error.value = 'WebSocket错误'; console.error(e) }
 
       ws.onmessage = (e) => {
         if (typeof e.data === 'string') {
+          // 文本帧
           const msg = JSON.parse(e.data)
           if (msg.type === 'transcript') {
             userText.value = msg.data
@@ -93,12 +117,18 @@ createApp({
             scrollToBottom()
           } else if (msg.type === 'text') {
             typeReply(msg.data)
+          } else if (msg.type === 'end') {
+            // 如果后端会显式告诉“这一轮音频结束”，你可以在这里把 listening 置 true
+            listening.value = true
+            userText.value = ''
           }
         } else {
-          playAudio(e.data)
+          // 二进制帧：TTS MP3/OGG chunk
+          playTTSChunk(e.data)
         }
       }
 
+      // 2) 上行：采集麦克风，用 AudioWorklet 把 PCM 推给后端
       audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 })
       await audioCtx.audioWorklet.addModule('/static/pcm-processor.js')
 
@@ -107,8 +137,10 @@ createApp({
 
       workletNode = new AudioWorkletNode(audioCtx, 'pcm-processor', { numberOfInputs: 1, numberOfOutputs: 0 })
       workletNode.port.onmessage = (ev) => {
+        // 这里的 ev.data 是你在 processor 里 postMessage 上来的 PCM Int16/Float32 等
         if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(ev.data.buffer)
+          // 注意：如果你传来的是 Float32Array，需要转换成 ArrayBuffer/Int16 再发
+          ws.send(ev.data.buffer || ev.data)
         }
       }
 
@@ -120,10 +152,26 @@ createApp({
     }
 
     function stopCall() {
-      try { ws && ws.readyState === WebSocket.OPEN && ws.close() } catch {}
-      try { workletNode && workletNode.disconnect() } catch {}
-      try { localStream?.getTracks().forEach(t => t.stop()) } catch {}
-      try { audioCtx && audioCtx.close() } catch {}
+      // WebSocket
+      try { ws && ws.readyState === WebSocket.OPEN && ws.close() } catch { }
+      ws = null
+
+      // 关闭录音
+      try { workletNode && workletNode.disconnect() } catch { }
+      try { localStream?.getTracks().forEach(t => t.stop()) } catch { }
+      try { audioCtx && audioCtx.close() } catch { }
+
+      // MediaSource
+      try {
+        if (mediaSource && mediaSource.readyState === 'open') {
+          mediaSource.endOfStream()
+        }
+      } catch { }
+      mediaSource = null
+      sourceBuffer = null
+      audioEl = null
+      mediaQueue = []
+
       recording.value = false
       listening.value = false
     }
@@ -146,6 +194,7 @@ createApp({
       }
     }
 
+    // ---------- 视频（保留你原来的） ----------
     async function startVideo() {
       if (videoEnabled.value) return
       try {
@@ -176,8 +225,8 @@ createApp({
     }
 
     function stopVideo() {
-      try { videoStream?.getTracks().forEach(t => t.stop()) } catch {}
-      try { pc && pc.close() } catch {}
+      try { videoStream?.getTracks().forEach(t => t.stop()) } catch { }
+      try { pc && pc.close() } catch { }
       localVideo.value.srcObject = null
       remoteVideo.value.srcObject = null
       videoEnabled.value = false
