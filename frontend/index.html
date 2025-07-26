@@ -82,6 +82,16 @@
           </template>
         </div>
       </div>
+      <div v-else class="history article" ref="historyEl">
+        <div v-for="(msg, idx) in history" :key="idx" :class="['message', msg.role]">
+          <template v-if="msg.role === 'bot'">
+            <span v-html="renderMarkdown(tokensToText(msg.tokens) || msg.text)"></span>
+          </template>
+          <template v-else>
+            {{ msg.text }}
+          </template>
+        </div>
+      </div>
     </div>
 
     <form class="chat-input-bar" @submit.prevent="onSendText">
