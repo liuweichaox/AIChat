@@ -63,21 +63,17 @@
 
       <div class="history article" ref="historyEl">
         <div v-for="(msg, idx) in history" :key="idx" :class="['message', msg.role]">
-          <template v-if="msg.role === 'bot'">
-            <span v-html="renderMarkdown(msg.text)"></span>
+          <template v-if="msg.role === 'bot' && Array.isArray(msg.tokens)">
+            <!-- 高亮已说部分 -->
+            <span class="spoken" v-html="renderMarkdown(tokensToText(msg.tokens.slice(0, msg.spokenChars)))"></span>
+            <!-- 未说部分 -->
+            <span v-html="renderMarkdown(tokensToText(msg.tokens.slice(msg.spokenChars)))"></span>
           </template>
           <template v-else>
             {{ msg.text }}
           </template>
         </div>
       </div>
-    </div>
-
-    <!-- 同步字幕区，只渲染一句，跟随TTS朗读高亮 -->
-    <div class="sync-subtitle" v-if="showSubtitles && speakingIndex >= 0 && history[speakingIndex]">
-      <span class="highlight"
-        v-html="renderMarkdown(history[speakingIndex].text.slice(0, history[speakingIndex].spokenChars))"></span><span
-        v-html="renderMarkdown(history[speakingIndex].text.slice(history[speakingIndex].spokenChars))"></span>
     </div>
 
     <form class="chat-input-bar" @submit.prevent="onSendText">
