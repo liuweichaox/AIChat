@@ -5,7 +5,7 @@ from fastapi import APIRouter, UploadFile, File
 from fastapi.responses import JSONResponse, StreamingResponse
 from services.asr_service import transcribe
 from services.llm_service import full_reply, stream_reply
-from services.tts_service import synthesize
+from services.tts_service import synthesize, DEFAULT_VOICE
 
 router = APIRouter(prefix="/api")
 
@@ -40,9 +40,9 @@ async def stream_reply_endpoint(text: str):
 async def tts_endpoint(payload: dict):
     """将文本转为语音，返回 WAV 字节数据（十六进制）。"""
 
-    # 从请求 JSON 中取出需要合成的文本
     text = payload.get("text")
-    audio_bytes = await synthesize(text)
+    voice = payload.get("voice", DEFAULT_VOICE)
+    audio_bytes = await synthesize(text, voice)
     return JSONResponse({"audio": audio_bytes.hex()})
 
 def extract_voice_info(voice):

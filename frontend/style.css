@@ -36,6 +36,11 @@ html {
   border-radius: 6px;
   border: 1px solid #eee;
 }
+.voice-selector {
+  margin-left: 1em;
+  border-radius: 6px;
+  border: 1px solid #eee;
+}
 
 .main-pane {
   width: 100vw;
@@ -144,6 +149,12 @@ html {
 .message.bot {
   text-align: left;
   color: #333;
+}
+.message.bot.playing {
+  background: #f0f8ff;
+}
+.spoken {
+  background: #fffbcc;
 }
 
 .cursor {
