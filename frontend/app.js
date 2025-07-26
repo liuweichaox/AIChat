@@ -1,5 +1,31 @@
 import { createApp, ref, nextTick, onMounted } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
 
+class AsyncQueue {
+  constructor() {
+    this.queue = [];
+    this.resolvers = [];
+  }
+
+  enqueue(item) {
+    if (this.resolvers.length > 0) {
+      const resolve = this.resolvers.shift();
+      resolve(item);
+    } else {
+      this.queue.push(item);
+    }
+  }
+
+  dequeue() {
+    return new Promise((resolve) => {
+      if (this.queue.length > 0) {
+        resolve(this.queue.shift());
+      } else {
+        this.resolvers.push(resolve);
+      }
+    });
+  }
+}
+
 createApp({
   setup() {
     const lang = ref('zh')
@@ -22,6 +48,8 @@ createApp({
     // 音频
     let ws, audioCtx, localStream, workletNode
     let mediaSource, sourceBuffer, audioEl, mediaQueue = []
+    let ttsStartTime = 0
+
     // 视频
     let pc, videoStream
 
@@ -85,50 +113,37 @@ createApp({
       scrollToBottom()
     }
 
-    let pendingBoundaries = []
     const NS100_TO_SEC = 1 / 10_000_000
+    const pendingBoundaries = new AsyncQueue();
+    (async () => {
+      while (true) {
+        const msg = await pendingBoundaries.dequeue();  // 等待新消息
+        const offsetSec = msg.offset * NS100_TO_SEC
+        const elapsed = (performance.now() / 1000) - ttsStartTime
+        while (elapsed >= offsetSec) {
+          const m = history.value[speakingIndex.value]
+          if (m) {
+            m.text += msg.delta_text
+            console.log('onWordBoundary: ', m)
+          }
+        }
+      }
+    })();
 
     function onTTSBegin() {
-      pendingBoundaries = []
       // 重置 bot 最新一条的文本为空，用于逐步追加
       const m = history.value[speakingIndex.value]
       if (m) m.text = ""
+      ttsStartTime = performance.now() / 1000
       resetMediaSourceForNewUtterance()
-      requestAnimationFrame(tickSubtitle)
     }
 
     function onWordBoundary(msg) {
-      const offsetSec = msg.offset * NS100_TO_SEC
-      pendingBoundaries.push({
-        offsetSec,
-        delta_text: msg.delta_text || msg.text
-      })
+      pendingBoundaries.enqueue(msg);
     }
 
     function onTTSEnd() {
       finalizeMediaSource()
-      pendingBoundaries = []
-    }
-
-    function tickSubtitle() {
-      if (!audioEl) return
-      const elapsed = audioEl.currentTime
-      let updated = false
-
-      while (pendingBoundaries.length && elapsed >= pendingBoundaries[0].offsetSec) {
-        const item = pendingBoundaries.shift()
-        const m = history.value[speakingIndex.value]
-        if (m) {
-          m.text += item.delta_text  // 累加文字
-          updated = true
-        }
-      }
-
-      if (updated) history.value = [...history.value] // 触发 Vue 刷新
-
-      if (speakingIndex.value !== -1) {
-        requestAnimationFrame(tickSubtitle)
-      }
     }
 
     // 音频主入口
@@ -180,7 +195,7 @@ createApp({
 
       workletNode = new AudioWorkletNode(audioCtx, 'pcm-processor', { numberOfInputs: 1, numberOfOutputs: 0 })
       workletNode.port.onmessage = (ev) => {
-        if (ws && ws.readyState === WebSocket.OPEN) {
+        if (ws && ws.readyState === WebSocket.OPEN && listening.value) {
           ws.send(ev.data.buffer || ev.data)
         }
       }
@@ -265,6 +280,7 @@ createApp({
         videoEnabled.value = false
       }
     }
+
     function stopVideo() {
       try { videoStream?.getTracks().forEach(t => t.stop()) } catch { }
       try { pc && pc.close() } catch { }
