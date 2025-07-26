@@ -71,10 +71,15 @@ createApp({
       audioEl.muted = ttsMuted.value
       audioEl.src = URL.createObjectURL(mediaSource)
       audioEl.onended = () => {
-        if (ws && ws.readyState === WebSocket.OPEN) {
+        console.log("TTS播放完成");
+        WebSocket.OPEN
+        speakingIndex.value = -1;     // 这里重置
+        pendingBoundaries.queue = []; // 清空未消费的字幕数据（如果有）
+        if (ws && ws.readyState === WebSocket.OPEN && !listening.value) {
           ws.send(JSON.stringify({ type: 'resume' }))
+          listening.value = true
         }
-        listening.value = true
+
       }
       mediaQueue = []
       mediaSource.addEventListener('sourceopen', () => {
@@ -85,7 +90,8 @@ createApp({
       })
     }
     function finalizeMediaSource() {
-      if (mediaSource && mediaSource.readyState === 'open') {
+      if (mediaSource && mediaSource.readyState === WebSocket.OPEN && !listening.value) {
+        console.log("endOfStream")
         try { mediaSource.endOfStream() } catch (e) { }
       }
     }
@@ -115,17 +121,24 @@ createApp({
 
     const NS100_TO_SEC = 1 / 10_000_000
     const pendingBoundaries = new AsyncQueue();
+
+    async function waitUntil(timeSec) {
+      while ((performance.now() / 1000) - ttsStartTime < timeSec) {
+        await new Promise(requestAnimationFrame);
+      }
+    }
+
     (async () => {
       while (true) {
         const msg = await pendingBoundaries.dequeue();  // 等待新消息
-        const offsetSec = msg.offset * NS100_TO_SEC
-        const elapsed = (performance.now() / 1000) - ttsStartTime
-        while (elapsed >= offsetSec) {
-          const m = history.value[speakingIndex.value]
-          if (m) {
-            m.text += msg.delta_text
-            console.log('onWordBoundary: ', m)
-          }
+        console.log('onWordBoundary: ', msg);
+        const offsetSec = msg.offset * NS100_TO_SEC;
+
+        await waitUntil(offsetSec); // 等待到 offsetSec 再继续
+        const m = history.value[speakingIndex.value];
+        if (m) {
+          m.text += msg.delta_text;
+          history.value = [...history.value];  // 触发 Vue 更新
         }
       }
     })();
@@ -140,6 +153,7 @@ createApp({
 
     function onWordBoundary(msg) {
       pendingBoundaries.enqueue(msg);
+      console.log("WWWW", msg)
     }
 
     function onTTSEnd() {
@@ -181,7 +195,6 @@ createApp({
             onWordBoundary(msg)
           } else if (msg.type === 'tts_end') {
             onTTSEnd()
-            speakingIndex.value = -1
           }
         } else {
           playTTSChunk(e.data)
