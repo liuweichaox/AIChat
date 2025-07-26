@@ -72,7 +72,7 @@ createApp({
       audioEl.src = URL.createObjectURL(mediaSource)
       audioEl.onended = () => {
         console.log("TTS播放完成");
-        WebSocket.OPEN
+        debugger
         speakingIndex.value = -1;     // 这里重置
         pendingBoundaries.queue = []; // 清空未消费的字幕数据（如果有）
         if (ws && ws.readyState === WebSocket.OPEN && !listening.value) {
