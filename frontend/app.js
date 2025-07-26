@@ -10,6 +10,7 @@ createApp({
     const typing = ref(false)
     const error = ref(null)
     const showSubtitles = ref(true)
+    const ttsMuted = ref(false)
     const videoEnabled = ref(false)
 
     const historyEl = ref(null)
@@ -45,6 +46,7 @@ createApp({
       mediaSource = new MediaSource()
       audioEl = new Audio()
       audioEl.autoplay = true
+      audioEl.muted = ttsMuted.value
       audioEl.src = URL.createObjectURL(mediaSource)
       audioEl.onended = () => {
         if (ws && ws.readyState === WebSocket.OPEN) {
@@ -183,6 +185,10 @@ createApp({
 
 
     function toggleSubtitles() { showSubtitles.value = !showSubtitles.value }
+    function toggleTTS() {
+      ttsMuted.value = !ttsMuted.value
+      if (audioEl) audioEl.muted = ttsMuted.value
+    }
     async function toggleMic() {
       if (recording.value) stopCall()
       else {
@@ -240,8 +246,8 @@ createApp({
 
     return {
       lang, userInput, history, recording, listening, typing, error,
-      toggleMic, toggleSubtitles, onSendText,
-      historyEl, showSubtitles, localVideo, remoteVideo, videoEnabled, toggleVideo,
+      toggleMic, toggleSubtitles, toggleTTS, onSendText,
+      historyEl, showSubtitles, ttsMuted, localVideo, remoteVideo, videoEnabled, toggleVideo,
       tokensToText, renderMarkdown
     }
   }
