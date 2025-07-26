@@ -26,7 +26,7 @@ async def stream_tts(websocket: WebSocket, text: str, voice: str):
             await websocket.send_bytes(chunk["data"])
         elif chunk["type"] == "WordBoundary":
             await websocket.send_text(json.dumps({
-                "type": "word",
+                "type": "word_boundary",
                 "offset": chunk["offset"],
                 "duration": chunk["duration"],
                 "text": chunk["text"]
