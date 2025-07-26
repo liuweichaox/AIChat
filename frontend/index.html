@@ -63,11 +63,8 @@
 
       <div class="history article" ref="historyEl">
         <div v-for="(msg, idx) in history" :key="idx" :class="['message', msg.role]">
-          <template v-if="msg.role === 'bot' && Array.isArray(msg.tokens)">
-            <!-- 高亮已说部分 -->
-            <span class="spoken" v-html="renderMarkdown(tokensToText(msg.tokens.slice(0, msg.spokenChars)))"></span>
-            <!-- 未说部分 -->
-            <span v-html="renderMarkdown(tokensToText(msg.tokens.slice(msg.spokenChars)))"></span>
+          <template v-if="msg.role === 'bot'">
+            {{ msg.text }}
           </template>
           <template v-else>
             {{ msg.text }}
