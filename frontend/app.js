@@ -13,12 +13,10 @@ createApp({
     const showSubtitles = ref(true)
     const ttsMuted = ref(false)
     const videoEnabled = ref(false)
-    const voices = ref([])
-    const voice = ref('zh-CN-XiaoxiaoNeural')
 
     const historyEl = ref(null)
     const localVideo = ref(null)
-    const remoteVideo = ref(null)
+    //const remoteVideo = ref(null) // P2P可用
 
     // 音频
     let ws, audioCtx, localStream, workletNode
@@ -35,15 +33,9 @@ createApp({
         }
       })
     }
-
-    function tokensToText(tokens) {
-      if (!tokens) return ''
-      return tokens.map(t => t.text).join('')
-    }
     function renderMarkdown(text) {
       return window.marked.parse(text || '')
     }
-
     function plainTextForMarks(text) {
       return text.replace(/```.*?```/gs, '')
         .replace(/`([^`]+)`/g, '$1')
@@ -52,45 +44,98 @@ createApp({
         .replace(/#+\s*(.*)/g, '$1')
         .replace(/\n/g, ' ')
     }
-
-    function computePlainIndexMap(text) {
-      const map = [0]
-      for (let i = 0; i < text.length; i++) {
-        const plain = plainTextForMarks(text.slice(0, i + 1))
-        while (map.length <= plain.length) map.push(i + 1)
-      }
-      return map
-    }
-
     function computeWordTokenBounds(text) {
       const plain = plainTextForMarks(text)
-      const map = computePlainIndexMap(text)
       const words = plain.match(/\S+/g) || []
       const bounds = []
       let idx = 0
       for (const w of words) {
         idx = plain.indexOf(w, idx) + w.length
-        const tokenIdx = map[Math.min(idx, map.length - 1)]
-        bounds.push(tokenIdx)
-      }
-      return bounds
-    }
-
-    function computeMarkBounds(text) {
-      text = plainTextForMarks(text)
-      const pieces = text.split(/([。！？.!?])/)
-      const bounds = []
-      let idx = 0
-      for (const p of pieces) {
-        if (!p) continue
         bounds.push(idx)
-        idx += p.length
       }
-      bounds.push(idx)
       return bounds
     }
+    function addBotMessage(text) {
+      history.value.push({
+        role: 'bot',
+        text,
+        wordTokenBounds: computeWordTokenBounds(text),
+        spokenChars: 0,
+        wordIndex: 0
+      })
+      speakingIndex.value = history.value.length - 1
+    }
 
-    // 下行播放
+    function onSendText() {
+      if (!userInput.value.trim()) return
+      history.value.push({ role: 'user', text: userInput.value })
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'llm_search', data: userInput.value }))
+      }
+      userInput.value = ''
+      scrollToBottom()
+    }
+
+    async function startCall() {
+      history.value = []
+      recording.value = true
+      listening.value = true
+      error.value = null
+      scrollToBottom()
+      ws = new WebSocket(`ws://${location.host}/ws/audio`)
+      ws.binaryType = 'arraybuffer'
+      ws.onclose = () => { stopCall() }
+      ws.onerror = (e) => { error.value = (lang.value === 'zh' ? 'WebSocket错误' : 'WebSocket error'); console.error(e) }
+      ws.onmessage = (e) => {
+        if (typeof e.data === 'string') {
+          const msg = JSON.parse(e.data)
+          if (msg.type === 'asr_text') {
+            history.value.push({ role: 'user', text: msg.data })
+            listening.value = false
+            scrollToBottom()
+          } else if (msg.type === 'llm_reply') {
+            addBotMessage(msg.data)
+            listening.value = false
+            scrollToBottom()
+          } else if (msg.type === 'tts_begin') {
+            const m = history.value[speakingIndex.value]
+            if (m) {
+              m.spokenChars = 0
+              m.wordIndex = 0
+            }
+            resetMediaSourceForNewUtterance()
+          } else if (msg.type === 'word_boundary') {
+            const m = history.value[speakingIndex.value]
+            if (m && Array.isArray(m.wordTokenBounds)) {
+              if (m.wordIndex < m.wordTokenBounds.length) {
+                m.spokenChars = m.wordTokenBounds[m.wordIndex]
+                m.wordIndex++
+              }
+            }
+          } else if (msg.type === 'tts_end') {
+            finalizeMediaSource()
+            const m = history.value[speakingIndex.value]
+            if (m) m.spokenChars = m.text.length
+            speakingIndex.value = -1
+          }
+        } else {
+          playTTSChunk(e.data)
+        }
+      }
+
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 })
+      await audioCtx.audioWorklet.addModule('/static/pcm-processor.js')
+      localStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const source = audioCtx.createMediaStreamSource(localStream)
+      workletNode = new AudioWorkletNode(audioCtx, 'pcm-processor', { numberOfInputs: 1, numberOfOutputs: 0 })
+      workletNode.port.onmessage = (ev) => {
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(ev.data.buffer || ev.data)
+        }
+      }
+      source.connect(workletNode)
+      if (audioCtx.state === 'suspended') await audioCtx.resume()
+    }
     function resetMediaSourceForNewUtterance() {
       mediaSource = new MediaSource()
       audioEl = new Audio()
@@ -98,7 +143,7 @@ createApp({
       audioEl.muted = ttsMuted.value
       audioEl.src = URL.createObjectURL(mediaSource)
       audioEl.onended = () => {
-        if (ws && ws.readyState === WebSocket.OPEN) {
+        if (ws && ws.readyState === 'OPEN') {
           ws.send(JSON.stringify({ type: 'resume' }))
         }
         listening.value = true
@@ -129,113 +174,65 @@ createApp({
       appendNextChunk()
     }
 
-    // 打字机效果
-    function typeReply(text) {
-      typing.value = true
-      const msg = {
-        role: 'bot',
-        tokens: [],
-        typing: true,
-        text,
-        markBounds: computeMarkBounds(text),
-        wordTokenBounds: computeWordTokenBounds(text),
-        spokenChars: 0,
-        wordIndex: 0
-      }
-      history.value.push(msg)
-      scrollToBottom()
-      let i = 0
-      const timer = setInterval(() => {
-        msg.tokens.push({ id: msg.tokens.length, text: text[i] })
-        scrollToBottom()
-        i++
-        if (i >= text.length) {
-          clearInterval(timer)
-          typing.value = false
-          msg.typing = false
+    // ---------- 视频 ------------
+    async function startVideo() {
+      if (videoEnabled.value) return
+      videoEnabled.value = true
+      await nextTick()
+      try {
+        videoStream = await navigator.mediaDevices.getUserMedia({ video: true })
+        if (videoEnabled.value) {
+          localVideo.value.srcObject = videoStream
         }
-      }, 30) // 速度略快
+        pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] })
+        videoStream.getTracks().forEach(t => pc.addTrack(t, videoStream))
+        // 如有远端，启用下方
+        // pc.ontrack = ev => {
+        //   if (ev.track.kind === 'video') {
+        //     remoteVideo.value.srcObject = ev.streams[0]
+        //   }
+        // }
+        const offer = await pc.createOffer()
+        await pc.setLocalDescription(offer)
+        const resp = await fetch('/rtc/offer', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ sdp: pc.localDescription.sdp, type: pc.localDescription.type })
+        })
+        const answer = await resp.json()
+        await pc.setRemoteDescription(answer)
+      } catch (err) {
+        console.error(err)
+        error.value = err?.message || String(err)
+        videoEnabled.value = false
+      }
     }
-
-    // 发送文本
-    function onSendText() {
-      if (!userInput.value.trim()) return
-      history.value.push({ role: 'user', text: userInput.value })
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'llm_search', data: userInput.value }))
-      }
-      userInput.value = ''
-      scrollToBottom()
+    function stopVideo() {
+      try { videoStream?.getTracks().forEach(t => t.stop()) } catch { }
+      try { pc && pc.close() } catch { }
+      localVideo.value.srcObject = null
+      videoEnabled.value = false
     }
-
-    // 音频主入口
-    async function startCall() {
-      history.value = []
-      recording.value = true
-      listening.value = true
-      error.value = null
-      scrollToBottom()
-
-      ws = new WebSocket(`ws://${location.host}/ws/audio`)
-      ws.binaryType = 'arraybuffer'
-      ws.onopen = () => {
-        ws.send(JSON.stringify({ type: 'voice', data: voice.value }))
-      }
-
-      ws.onclose = () => { stopCall() }
-      ws.onerror = (e) => { error.value = (lang.value === 'zh' ? 'WebSocket错误' : 'WebSocket error'); console.error(e) }
-
-      ws.onmessage = (e) => {
-        if (typeof e.data === 'string') {
-          const msg = JSON.parse(e.data)
-          if (msg.type === 'asr_text') {
-            history.value.push({ role: 'user', text: msg.data })
-            listening.value = false
-            scrollToBottom()
-          } else if (msg.type === 'llm_reply') {
-            listening.value = false
-            typeReply(msg.data)
-          } else if (msg.type === 'tts_begin') {
-            listening.value = false
-            speakingIndex.value = history.value.length - 1
-            const m = history.value[speakingIndex.value]
-            if (m) {
-              m.spokenChars = 0
-              m.wordIndex = 0
-            }
-            resetMediaSourceForNewUtterance()
-          } else if (msg.type === 'word_boundary') {
-            const m = history.value[speakingIndex.value]
-            if (m && Array.isArray(m.wordTokenBounds)) {
-              if (m.wordIndex < m.wordTokenBounds.length) {
-                m.spokenChars = m.wordTokenBounds[m.wordIndex]
-                m.wordIndex++
-              }
-            }
-          } else if (msg.type === 'tts_end') {
-            finalizeMediaSource()
-            const m = history.value[speakingIndex.value]
-            if (m) m.spokenChars = m.tokens.length
-            speakingIndex.value = -1
-          }
-        } else {
-          playTTSChunk(e.data)
+    async function toggleVideo() {
+      if (videoEnabled.value) stopVideo()
+      else await startVideo()
+    }
+    // --------- UI & 状态切换 ----------
+    function toggleSubtitles() { showSubtitles.value = !showSubtitles.value }
+    function toggleTTS() {
+      ttsMuted.value = !ttsMuted.value
+      if (audioEl) audioEl.muted = ttsMuted.value
+    }
+    async function toggleMic() {
+      if (recording.value) stopCall()
+      else {
+        try { await startCall() }
+        catch (err) {
+          console.error(err)
+          error.value = err?.message || String(err)
+          recording.value = false
         }
       }
-
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 48000 })
-      await audioCtx.audioWorklet.addModule('/static/pcm-processor.js')
-      localStream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      const source = audioCtx.createMediaStreamSource(localStream)
-
-      workletNode = new AudioWorkletNode(audioCtx, 'pcm-processor', { numberOfInputs: 1, numberOfOutputs: 0 })
-      workletNode.port.onmessage = (ev) => {
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(ev.data.buffer || ev.data)
-        }
-      }
-      source.connect(workletNode)
-      if (audioCtx.state === 'suspended') await audioCtx.resume()
     }
 
     async function stopCall() {
@@ -261,83 +258,13 @@ createApp({
       listening.value = false
     }
 
-
-    function toggleSubtitles() { showSubtitles.value = !showSubtitles.value }
-    function toggleTTS() {
-      ttsMuted.value = !ttsMuted.value
-      if (audioEl) audioEl.muted = ttsMuted.value
-    }
-    function onVoiceChange() {
-      if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({ type: 'voice', data: voice.value }))
-      }
-    }
-    async function toggleMic() {
-      if (recording.value) stopCall()
-      else {
-        try { await startCall() }
-        catch (err) {
-          console.error(err)
-          error.value = err?.message || String(err)
-          recording.value = false
-        }
-      }
-    }
-
-    // 视频
-    async function startVideo() {
-      if (videoEnabled.value) return
-      videoEnabled.value = true
-      await nextTick()
-      try {
-        videoStream = await navigator.mediaDevices.getUserMedia({ video: true })
-        if (videoEnabled.value) {
-          localVideo.value.srcObject = videoStream
-        }
-        pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] })
-        videoStream.getTracks().forEach(t => pc.addTrack(t, videoStream))
-        pc.ontrack = ev => {
-          if (ev.track.kind === 'video') {
-            //remoteVideo.value.srcObject = ev.streams[0]
-          }
-        }
-        const offer = await pc.createOffer()
-        await pc.setLocalDescription(offer)
-        const resp = await fetch('/rtc/offer', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sdp: pc.localDescription.sdp, type: pc.localDescription.type })
-        })
-        const answer = await resp.json()
-        await pc.setRemoteDescription(answer)
-      } catch (err) {
-        console.error(err)
-        error.value = err?.message || String(err)
-        videoEnabled.value = false
-      }
-    }
-    function stopVideo() {
-      try { videoStream?.getTracks().forEach(t => t.stop()) } catch { }
-      try { pc && pc.close() } catch { }
-      localVideo.value.srcObject = null
-      //remoteVideo.value.srcObject = null
-      videoEnabled.value = false
-    }
-    async function toggleVideo() { if (videoEnabled.value) stopVideo(); else await startVideo() }
-
-    onMounted(async () => {
-      startCall()
-      try {
-        const resp = await fetch('/api/voices')
-        voices.value = await resp.json()
-      } catch (err) { console.error(err) }
-    })
+    onMounted(() => { startCall() })
 
     return {
-      lang, userInput, history, recording, listening, typing, error,
-      toggleMic, toggleSubtitles, toggleTTS, onSendText, onVoiceChange,
-      historyEl, showSubtitles, ttsMuted, localVideo, remoteVideo, videoEnabled, toggleVideo,
-      tokensToText, renderMarkdown, voices, voice, speakingIndex
+      lang, userInput, history, speakingIndex, recording, listening, typing, error,
+      showSubtitles, ttsMuted, videoEnabled, localVideo,
+      toggleMic, toggleSubtitles, toggleTTS, toggleVideo, onSendText,
+      renderMarkdown
     }
   }
 }).mount('#app')
