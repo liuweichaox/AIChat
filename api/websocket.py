@@ -20,28 +20,26 @@ ASR_SAMPLE_RATE = 16000      # 你的 ASR（FunASR/Whisper）通常用 16k
 VAD_FRAME_MS = 20
 FRAME_BYTES = int(ASR_SAMPLE_RATE * VAD_FRAME_MS / 1000) * 2
 SILENCE_LIMIT = int(0.8 / (VAD_FRAME_MS / 1000))
-vad = webrtcvad.Vad(2)
-
+vad = webrtcvad.Vad(3)
 
 async def stream_tts(websocket: WebSocket, text: str):
-    """把 TTS 的 PCM 以固定帧长（20ms / 960 samples@48k）推给前端播放。"""
-    buffer = bytearray()
-    FRAME_SAMPLES = int(TTS_SAMPLE_RATE * 0.02)  # 20ms
-    FRAME_BYTES = FRAME_SAMPLES * 2              # int16 mono
+    """把 TTS PCM 重采样成 48k 裸 PCM 再实时推给前端"""
+    resample_state = None
+    async for chunk in synthesize_stream(text):  # int16 mono @ TTS_SAMPLE_RATE
+        if TTS_SAMPLE_RATE != CLIENT_SAMPLE_RATE:
+            chunk, resample_state = audioop.ratecv(
+                chunk,               # 16-bit
+                2,                   # width=2 bytes
+                1,                   # mono
+                TTS_SAMPLE_RATE,
+                CLIENT_SAMPLE_RATE,  # -> 48000
+                resample_state
+            )
+        await websocket.send_bytes(chunk)
 
-    async for chunk in synthesize_stream(text):  # 这里假设返回的就是 int16 PCM @ TTS_SAMPLE_RATE
-        buffer.extend(chunk)
-        while len(buffer) >= FRAME_BYTES:
-            frame = bytes(buffer[:FRAME_BYTES])
-            buffer = buffer[FRAME_BYTES:]
-            await websocket.send_bytes(frame)
-
-    if buffer:
-        pad = FRAME_BYTES - len(buffer)
-        await websocket.send_bytes(bytes(buffer) + b"\x00" * pad)
-
-    # 发送一个空包，告知客户端音频播放结束（可选）
+    # 结束标记
     await websocket.send_bytes(b"")
+
 
 
 @router.websocket("/audio")
