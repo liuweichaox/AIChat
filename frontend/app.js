@@ -319,6 +319,10 @@ createApp({
     }
     async function toggleVideo() { if (videoEnabled.value) stopVideo(); else await startVideo() }
 
+    function renderMarkdown(text) {
+      return marked.parse(text || '');
+    }
+
     onMounted(async () => {
       startCall()
       const resp = await fetch('/api/voices')
@@ -329,7 +333,7 @@ createApp({
       lang, userInput, history, recording, listening, typing, error,
       toggleMic, toggleTTS, onSendText, onVoiceChange,
       historyEl, ttsMuted, localVideo, remoteVideo, videoEnabled, toggleVideo,
-      voices, voice, speakingIndex
+      voices, voice, speakingIndex, renderMarkdown
     }
   }
 }).mount('#app')
