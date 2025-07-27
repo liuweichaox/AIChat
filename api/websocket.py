@@ -60,7 +60,7 @@ async def audio_endpoint(websocket: WebSocket):
         tts_task = None
         try:
             async for delta in stream_reply(text):
-                content = getattr(delta, "content", "") if hasattr(delta, "content") else str(delta)
+                content = delta.content
                 await websocket.send_text(json.dumps({"type": "llm_delta", "data": content}))
                 sentence += content
                 if sentence and sentence[-1] in "。！？!?\n":
