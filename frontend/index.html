@@ -40,7 +40,7 @@
         <!-- 语音角色选择 -->
         <select v-model="voice" class="voice-selector" @change="onVoiceChange" :title="lang==='zh' ? '语音角色' : 'Voice'">
           <option v-for="v in voices" :key="v.ShortName" :value="v.ShortName">
-            {{ v.FriendlyName || v.ShortName }}
+            {{ v.ShortName }} - {{v.Gender}}
           </option>
         </select>
       </div>
