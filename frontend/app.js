@@ -67,11 +67,9 @@ createApp({
     }
 
     function resetMediaSourceForNewUtterance() {
-
       if (mediaSource && mediaSource.readyState === 'open') {
         try { mediaSource.endOfStream() } catch (e) { console.warn(e) }
       }
-
       mediaSource = new MediaSource()
       audioEl = new Audio()
       audioEl.autoplay = true
@@ -83,6 +81,7 @@ createApp({
         pendingBoundaries.queue = []
         if (ws && ws.readyState === WebSocket.OPEN && !listening.value) {
           ws.send(JSON.stringify({ type: 'resume' }))
+          console.log("ws send resume")
           listening.value = true
         }
       }
@@ -103,6 +102,7 @@ createApp({
     }
 
     function finalizeMediaSource() {
+      console.log("finalizeMediaSource start")
       if (!mediaSource || mediaSource.readyState !== "open" || listening.value)
         return
       if (sourceBuffer && (sourceBuffer.updating || mediaQueue.length > 0)) {
@@ -112,6 +112,7 @@ createApp({
         return
       }
       mediaSource.endOfStream()
+      console.log("mediaSource endOfStream")
     }
     function appendNextChunk() {
       if (!sourceBuffer || sourceBuffer.updating) return
@@ -165,9 +166,6 @@ createApp({
     })();
 
     function onTTSBegin() {
-      // 重置 bot 最新一条的文本为空，用于逐步追加
-      // const m = history.value[speakingIndex.value]
-      // if (m) m.text = ""
       ttsStartTime = performance.now() / 1000
       resetMediaSourceForNewUtterance()
     }
@@ -214,6 +212,7 @@ createApp({
           } else if (msg.type === 'word_boundary') {
             //onWordBoundary(msg)
           } else if (msg.type === 'tts_end') {
+            console.log("onTTSEnd start")
             onTTSEnd()
           }
         } else {
