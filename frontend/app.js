@@ -1,4 +1,4 @@
-import { createApp, ref, nextTick, onMounted } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
+const { createApp, ref, nextTick, onMounted, computed } = Vue
 
 // marked is loaded globally via a script tag in index.html
 const { marked } = window
@@ -43,6 +43,16 @@ createApp({
     const videoEnabled = ref(false)
     const voices = ref([])
     const voice = ref('zh-CN-XiaoxiaoNeural')
+    const langOptions = [
+      { label: '中文', value: 'zh' },
+      { label: 'English', value: 'en' }
+    ]
+    const voiceOptions = computed(() =>
+      voices.value.map(v => ({
+        label: v.FriendlyName || v.ShortName,
+        value: v.ShortName
+      }))
+    )
 
     const historyEl = ref(null)
     const localVideo = ref(null)
@@ -357,7 +367,8 @@ createApp({
       toggleMic, toggleTTS, onSendText, onVoiceChange,
       historyEl, ttsMuted, localVideo, remoteVideo, videoEnabled, toggleVideo,
       voices, voice, speakingIndex,
+      langOptions, voiceOptions,
       marked
     }
   }
-}).mount('#app')
+}).use(naive).mount('#app')
