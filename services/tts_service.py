@@ -20,7 +20,7 @@ async def synthesize(text: str, voice: str = DEFAULT_VOICE) -> bytes:
         voice=voice
     )
     audio_bytes = b""
-    async for chunk in communicator.stream():
+    for chunk in communicator.stream_sync():
         if chunk["type"] == "audio":
             audio_bytes += chunk["data"]
     return audio_bytes
@@ -32,5 +32,5 @@ async def synthesize_stream(text: str, voice: str = DEFAULT_VOICE):
         text=remove_markdown_headers(text),
         voice=voice
     )
-    async for chunk in communicator.stream():
+    for chunk in communicator.stream_sync():
         yield chunk
