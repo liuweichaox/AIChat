@@ -346,21 +346,14 @@ createApp({
     }
     async function toggleVideo() { if (videoEnabled.value) stopVideo(); else await startVideo() }
 
-    function handleVisibilityChange() {
-      if (document.hidden) stopCall()
-    }
 
     onMounted(async () => {
+      startCall()
       const resp = await fetch('/api/voices')
       voices.value = await resp.json()
-
-      window.addEventListener('beforeunload', stopCall)
-      document.addEventListener('visibilitychange', handleVisibilityChange)
     })
 
     onUnmounted(() => {
-      window.removeEventListener('beforeunload', stopCall)
-      document.removeEventListener('visibilitychange', handleVisibilityChange)
     })
 
     return {
