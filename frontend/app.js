@@ -155,7 +155,8 @@ createApp({
         const m = history.value[speakingIndex.value];
         if (m) {
           m.text += msg.delta_text;
-          history.value = [...history.value];  // 触发 Vue 更新
+          history.value = [...history.value];
+          scrollToBottom()
         }
       }
     })();
