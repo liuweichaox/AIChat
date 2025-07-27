@@ -71,8 +71,6 @@ createApp({
       audioEl.muted = ttsMuted.value
       audioEl.src = URL.createObjectURL(mediaSource)
       audioEl.onended = () => {
-        console.log("TTS播放完成");
-        debugger
         speakingIndex.value = -1;     // 这里重置
         pendingBoundaries.queue = []; // 清空未消费的字幕数据（如果有）
         if (ws && ws.readyState === WebSocket.OPEN && !listening.value) {
@@ -136,7 +134,6 @@ createApp({
     (async () => {
       while (true) {
         const msg = await pendingBoundaries.dequeue();  // 等待新消息
-        console.log('onWordBoundary: ', msg);
         const offsetSec = msg.offset * NS100_TO_SEC;
 
         await waitUntil(offsetSec); // 等待到 offsetSec 再继续
@@ -158,7 +155,6 @@ createApp({
 
     function onWordBoundary(msg) {
       pendingBoundaries.enqueue(msg);
-      console.log("WWWW", msg)
     }
 
     function onTTSEnd() {
@@ -315,7 +311,7 @@ createApp({
       try {
         const resp = await fetch('/api/voices')
         voices.value = await resp.json()
-      } catch (err) { console.error(err) }
+      } catch (err) { }
     })
 
     return {
