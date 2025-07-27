@@ -97,9 +97,10 @@ createApp({
       mediaQueue = []
       sourceBuffer = null
 
-      mediaSource.addEventListener('sourceopen', () => {
+      mediaSource.addEventListener('sourceopen', (ev) => {
+        const ms = ev.target
         try {
-          sourceBuffer = mediaSource.addSourceBuffer(DOWNSTREAM_MIME)
+          sourceBuffer = ms.addSourceBuffer(DOWNSTREAM_MIME)
           sourceBuffer.mode = 'sequence'
           sourceBuffer.addEventListener('updateend', appendNextChunk)
           appendNextChunk() // 立即尝试消耗队列
