@@ -225,6 +225,7 @@ createApp({
             break
           }
           case 'llm_end':
+            scrollToBottom()
             break
           case 'tts_begin':
             onTTSBegin()
@@ -233,7 +234,7 @@ createApp({
             playTTSChunk(base64ToArrayBuffer(msg.data))
             break
           case 'tts_boundary':
-            onWordBoundary(msg)
+            //onWordBoundary(msg)
             break
           case 'tts_end':
             onTTSEnd()
