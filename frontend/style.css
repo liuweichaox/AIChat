@@ -82,7 +82,7 @@ body {
   word-break: break-word;
   /* 避免长单词撑开容器 */
   overflow-wrap: break-word;
-  /* 标准换行写法 */
+  max-height: calc(100vh - 150px);
 }
 
 .history img {

@@ -42,7 +42,7 @@ createApp({
     const ttsMuted = ref(false)
     const videoEnabled = ref(false)
     const voices = ref([])
-    const voice = ref('zh-TW-YunJheNeural')
+    const voice = ref('zh-CN-YunxiNeural')
 
     const historyEl = ref(null)
     const localVideo = ref(null)
@@ -143,6 +143,10 @@ createApp({
     // 发送文本
     function onSendText() {
       if (!userInput.value.trim()) return
+      if (audioEl) audioEl.src = ''
+      mediaQueue = []
+      mediaSource = null
+      sourceBuffer = null
       history.value.push({ role: 'user', text: userInput.value })
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'llm_search', data: userInput.value }))
