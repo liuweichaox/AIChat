@@ -96,7 +96,7 @@ createApp({
         })
         return
       }
-      try { mediaSource.endOfStream() } catch (e) { }
+      mediaSource.endOfStream()
     }
     function appendNextChunk() {
       if (!sourceBuffer || sourceBuffer.updating) return
@@ -218,21 +218,19 @@ createApp({
     }
 
     async function stopCall() {
-      try { ws && ws.readyState === WebSocket.OPEN && ws.close() } catch { }
+      ws && ws.readyState === WebSocket.OPEN && ws.close()
       ws = null
-      try { workletNode && workletNode.disconnect() } catch { }
+      workletNode && workletNode.disconnect()
       workletNode = null
-      try { localStream?.getTracks().forEach(t => t.stop()) } catch { }
+      localStream?.getTracks().forEach(t => t.stop())
       localStream = null
 
       if (audioCtx && audioCtx.state !== 'closed') {
-        try { await audioCtx.close() } catch { }
+        await audioCtx.close()
       }
       audioCtx = null
 
-      try {
-        if (mediaSource && mediaSource.readyState === "open") mediaSource.endOfStream()
-      } catch { }
+      if (mediaSource && mediaSource.readyState === "open") mediaSource.endOfStream()
       mediaSource = null
       sourceBuffer = null
       audioEl = null
@@ -298,8 +296,8 @@ createApp({
     }
 
     function stopVideo() {
-      try { videoStream?.getTracks().forEach(t => t.stop()) } catch { }
-      try { pc && pc.close() } catch { }
+      videoStream?.getTracks().forEach(t => t.stop())
+      pc && pc.close()
       localVideo.value.srcObject = null
       //remoteVideo.value.srcObject = null
       videoEnabled.value = false
@@ -308,10 +306,8 @@ createApp({
 
     onMounted(async () => {
       startCall()
-      try {
-        const resp = await fetch('/api/voices')
-        voices.value = await resp.json()
-      } catch (err) { }
+      const resp = await fetch('/api/voices')
+      voices.value = await resp.json()
     })
 
     return {
