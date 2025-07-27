@@ -42,7 +42,7 @@ createApp({
     const ttsMuted = ref(false)
     const videoEnabled = ref(false)
     const voices = ref([])
-    const voice = ref('zh-CN-XiaoxiaoNeural')
+    const voice = ref('zh-TW-YunJheNeural')
 
     const historyEl = ref(null)
     const localVideo = ref(null)
