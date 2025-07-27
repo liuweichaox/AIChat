@@ -36,7 +36,6 @@ async def stream_tts(websocket: WebSocket, text: str, voice: str):
                 delta_text = text[last_pos:current_pos]
                 spoken_text += delta_text
                 last_pos = current_pos
-                print(delta_text)
                 await websocket.send_text(json.dumps({
                     "type": "word_boundary",
                     "offset": chunk["offset"],
@@ -44,6 +43,18 @@ async def stream_tts(websocket: WebSocket, text: str, voice: str):
                     "delta_text": delta_text,
                     "spoken_text": spoken_text
                 }))
+
+    if last_pos < len(text):
+        remaining_text = text[last_pos:]
+        spoken_text += remaining_text
+        print(remaining_text)
+        await websocket.send_text(json.dumps({
+            "type": "word_boundary",
+            "offset": len(text),  # 或者适当的偏移量
+            "duration": 0,  # 或者适当的持续时间
+            "delta_text": remaining_text,
+            "spoken_text": spoken_text
+        }))
     await websocket.send_text(json.dumps({"type": "tts_end"}))
 
 
