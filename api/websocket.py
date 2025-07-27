@@ -15,7 +15,7 @@ CLIENT_SAMPLE_RATE = 48000   # 前端采样率
 ASR_SAMPLE_RATE = 16000      # ASR采样率
 VAD_FRAME_MS = 20
 FRAME_BYTES = int(ASR_SAMPLE_RATE * VAD_FRAME_MS / 1000) * 2  # 16kHz * 20ms * 2 bytes (16bit)
-SILENCE_LIMIT = int(1.5 / (VAD_FRAME_MS / 1000))              # 0.8秒静音为一句话断点
+SILENCE_LIMIT = int(1.5 / (VAD_FRAME_MS / 1000))              # 静音为一句话断点
 vad = webrtcvad.Vad(3)
 
 async def stream_tts(websocket: WebSocket, text: str, voice: str):
