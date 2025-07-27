@@ -89,7 +89,7 @@ createApp({
         pendingBoundaries.queue = []
         if (ws && ws.readyState === WebSocket.OPEN && !listening.value) {
           ws.send(JSON.stringify({ type: 'resume' }))
-          console.log("ws send resume")
+          console.log("audioEl.onended ws send resume")
           listening.value = true
         }
       }
@@ -122,6 +122,7 @@ createApp({
       mediaSource.endOfStream()
       console.log("mediaSource endOfStream")
     }
+
     function appendNextChunk() {
       if (!sourceBuffer || sourceBuffer.updating) return
       if (mediaQueue.length > 0) {
@@ -131,7 +132,7 @@ createApp({
 
     function playTTSChunk(chunk) {
       if (!chunk || chunk.byteLength === 0) return
-      if (!mediaSource) resetMediaSourceForNewUtterance()
+      console.log("playTTSChunk mediaQueue push", chunk.byteLength)
       mediaQueue.push(new Uint8Array(chunk))
       if (sourceBuffer && !sourceBuffer.updating) {
         appendNextChunk()
@@ -171,6 +172,7 @@ createApp({
     })();
 
     function onTTSBegin() {
+      console.log("onTTSBegin")
       ttsStartTime = performance.now() / 1000
       resetMediaSourceForNewUtterance()
     }
@@ -180,8 +182,23 @@ createApp({
     }
 
     function onTTSEnd() {
+      saveAudioTest()
       finalizeMediaSource()
     }
+
+    function saveAudioTest() {
+      if (mediaQueue.length === 0) {
+        console.warn("No audio data to save");
+        return;
+      }
+      const blob = new Blob(mediaQueue, { type: 'audio/mpeg' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'tts_test.mp3';
+      a.click();
+    }
+
 
     // 音频主入口
     async function startCall() {
