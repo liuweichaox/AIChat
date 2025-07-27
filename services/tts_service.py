@@ -7,7 +7,7 @@ import html
 import edge_tts
 
 
-DEFAULT_VOICE = "zh-CN-XiaoxiaoNeural"
+DEFAULT_VOICE = "zh-CN-XiaoyiNeural"
 
 def remove_markdown_headers(text):
     # 替换所有行首1~6个#后接空格
