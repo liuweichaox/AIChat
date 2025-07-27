@@ -166,8 +166,8 @@ createApp({
 
     function onTTSBegin() {
       // 重置 bot 最新一条的文本为空，用于逐步追加
-      const m = history.value[speakingIndex.value]
-      if (m) m.text = ""
+      // const m = history.value[speakingIndex.value]
+      // if (m) m.text = ""
       ttsStartTime = performance.now() / 1000
       resetMediaSourceForNewUtterance()
     }
@@ -205,14 +205,14 @@ createApp({
             listening.value = false
             scrollToBottom()
           } else if (msg.type === 'llm_reply') {
-            history.value.push({ role: 'bot', text: '' })
+            history.value.push({ role: 'bot', text: msg.data })
             speakingIndex.value = history.value.length - 1
             listening.value = false
             scrollToBottom()
           } else if (msg.type === 'tts_begin') {
             onTTSBegin()
           } else if (msg.type === 'word_boundary') {
-            onWordBoundary(msg)
+            //onWordBoundary(msg)
           } else if (msg.type === 'tts_end') {
             onTTSEnd()
           }
