@@ -1,12 +1,13 @@
 import json
+import base64
+import asyncio
 import audioop
-import edge_tts
 import webrtcvad
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from services.asr_service import transcribe
-from services.llm_service import full_reply
+from services.llm_service import stream_reply
 from services.tts_service import synthesize_stream, DEFAULT_VOICE
 
 router = APIRouter(prefix="/ws")
@@ -18,42 +19,22 @@ FRAME_BYTES = int(ASR_SAMPLE_RATE * VAD_FRAME_MS / 1000) * 2  # 16kHz * 20ms * 2
 SILENCE_LIMIT = int(1.5 / (VAD_FRAME_MS / 1000))              # 静音为一句话断点
 vad = webrtcvad.Vad(3)
 
-async def stream_tts(websocket: WebSocket, text: str, voice: str):
-    await websocket.send_text(json.dumps({"type": "tts_begin"}))
 
-    last_pos = 0
-    spoken_text = ""
+async def stream_tts(websocket: WebSocket, text: str, voice: str):
+    """Stream speech synthesis result to the client."""
+    await websocket.send_text(json.dumps({"type": "tts_begin"}))
 
     async for chunk in synthesize_stream(text, voice):
         if chunk["type"] == "audio":
-            await websocket.send_bytes(chunk["data"])
+            b64 = base64.b64encode(chunk["data"]).decode()
+            await websocket.send_text(json.dumps({"type": "tts_audio", "data": b64}))
         elif chunk["type"] == "WordBoundary":
-            segment = chunk["text"]
-            # 从 last_pos 位置开始找 chunk["text"] 在全文中的索引
-            idx = text.find(segment, last_pos)
-            if idx != -1:
-                current_pos = idx + len(segment)
-                delta_text = text[last_pos:current_pos]
-                spoken_text += delta_text
-                last_pos = current_pos
-                await websocket.send_text(json.dumps({
-                    "type": "word_boundary",
-                    "offset": chunk["offset"],
-                    "duration": chunk["duration"],
-                    "delta_text": delta_text,
-                    "spoken_text": spoken_text
-                }))
+            await websocket.send_text(json.dumps({
+                "type": "tts_boundary",
+                "offset_sec": chunk["offset"] / 10_000_000,
+                "text": chunk["text"],
+            }))
 
-    if last_pos < len(text):
-        remaining_text = text[last_pos:]
-        spoken_text += remaining_text
-        await websocket.send_text(json.dumps({
-            "type": "word_boundary",
-            "offset": len(text),  # 或者适当的偏移量
-            "duration": 0,  # 或者适当的持续时间
-            "delta_text": remaining_text,
-            "spoken_text": spoken_text
-        }))
     await websocket.send_text(json.dumps({"type": "tts_end"}))
 
 
@@ -69,10 +50,34 @@ async def audio_endpoint(websocket: WebSocket):
 
     vad_buffer = bytearray()
     audio_buffer = bytearray()
-    video_frames = []
     silence = 0
     listening = True
     voice = DEFAULT_VOICE
+
+    async def handle_query(text: str):
+        await websocket.send_text(json.dumps({"type": "llm_begin"}))
+        sentence = ""
+        tts_task = None
+        try:
+            async for delta in stream_reply(text):
+                content = getattr(delta, "content", "") if hasattr(delta, "content") else str(delta)
+                await websocket.send_text(json.dumps({"type": "llm_delta", "data": content}))
+                sentence += content
+                if sentence and sentence[-1] in "。！？!?\n":
+                    if tts_task:
+                        await tts_task
+                    tts_task = asyncio.create_task(stream_tts(websocket, sentence, voice))
+                    sentence = ""
+        except Exception as e:
+            await websocket.send_text(json.dumps({"type": "error", "data": str(e)}))
+            return
+
+        await websocket.send_text(json.dumps({"type": "llm_end"}))
+
+        if tts_task:
+            await tts_task
+        if sentence.strip():
+            await stream_tts(websocket, sentence, voice)
 
     try:
         while True:
@@ -112,17 +117,13 @@ async def audio_endpoint(websocket: WebSocket):
                             # 一句话结束，ASR推理
                             transcript = await transcribe(bytes(audio_buffer))
                             audio_buffer.clear()
-                            video_frames.clear()
 
                             if transcript.strip():
-                                # 进入“回复+TTS”阶段，先关闭监听
                                 listening = False
                                 vad_buffer.clear()
 
                                 await websocket.send_text(json.dumps({"type": "asr_text", "data": transcript}))
-                                llm_reply = await full_reply(transcript)
-                                await websocket.send_text(json.dumps({"type": "llm_reply", "data": llm_reply}))
-                                await stream_tts(websocket, llm_reply, voice)
+                                await handle_query(transcript)
 
                         silence = 0
             # 处理控制消息
@@ -138,18 +139,14 @@ async def audio_endpoint(websocket: WebSocket):
                     silence = 0
                     audio_buffer.clear()
                     vad_buffer.clear()
-                    video_frames.clear()
                 elif payload.get("type") == "llm_search":
                     text = payload.get("data", "")
                     if text.strip():
                         listening = False
                         vad_buffer.clear()
                         audio_buffer.clear()
-                        video_frames.clear()
 
-                        llm_reply = await full_reply(text)
-                        await websocket.send_text(json.dumps({"type": "llm_reply", "data": llm_reply}))
-                        await stream_tts(websocket, llm_reply, voice)
+                        await handle_query(text)
                 elif payload.get("type") == "voice":
                     v = payload.get("data")
                     if isinstance(v, str) and v:
