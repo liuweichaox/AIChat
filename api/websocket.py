@@ -34,7 +34,6 @@ async def stream_tts(websocket: WebSocket, text: str, voice: str):
                 "text": chunk["text"],
             }))
 
-
 @router.websocket("/audio")
 async def audio_endpoint(websocket: WebSocket):
     """
@@ -117,7 +116,7 @@ async def audio_endpoint(websocket: WebSocket):
                     frame = bytes(vad_buffer[:FRAME_BYTES])
                     vad_buffer = vad_buffer[FRAME_BYTES:]
 
-                    if detect_voice(frame, ASR_SAMPLE_RATE):
+                    if vad.is_speech(frame, ASR_SAMPLE_RATE):
                         silence = 0
                     else:
                         silence += 1
