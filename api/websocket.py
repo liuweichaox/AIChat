@@ -22,7 +22,6 @@ vad = webrtcvad.Vad(3)
 
 async def stream_tts(websocket: WebSocket, text: str, voice: str):
     """Stream speech synthesis result to the client."""
-    await websocket.send_text(json.dumps({"type": "tts_begin"}))
 
     async for chunk in synthesize_stream(text, voice):
         if chunk["type"] == "audio":
@@ -34,8 +33,6 @@ async def stream_tts(websocket: WebSocket, text: str, voice: str):
                 "offset_sec": chunk["offset"] / 10_000_000,
                 "text": chunk["text"],
             }))
-
-    await websocket.send_text(json.dumps({"type": "tts_end"}))
 
 
 
@@ -54,16 +51,23 @@ async def audio_endpoint(websocket: WebSocket):
     listening = True
     voice = DEFAULT_VOICE
 
+    
     async def handle_query(text: str):
         await websocket.send_text(json.dumps({"type": "llm_begin"}))
+        
         sentence = ""
         tts_task = None
+        tts_started = False
+
         try:
             async for delta in stream_reply(text):
                 content = delta.content
                 await websocket.send_text(json.dumps({"type": "llm_delta", "data": content}))
                 sentence += content
-                if sentence and sentence[-1] in "。！？!?\n":
+                if sentence and sentence[-1] in "。！？!?.\n":
+                    if not tts_started:
+                        await websocket.send_text(json.dumps({"type": "tts_begin"}))
+                        tts_started = True
                     if tts_task:
                         await tts_task
                     tts_task = asyncio.create_task(stream_tts(websocket, sentence, voice))
@@ -77,7 +81,14 @@ async def audio_endpoint(websocket: WebSocket):
         if tts_task:
             await tts_task
         if sentence.strip():
+            if not tts_started:
+                await websocket.send_text(json.dumps({"type": "tts_begin"}))
+                tts_started = True
             await stream_tts(websocket, sentence, voice)
+
+        if tts_started:
+            await websocket.send_text(json.dumps({"type": "tts_end"}))
+
 
     try:
         while True:
