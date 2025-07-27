@@ -182,23 +182,8 @@ createApp({
     }
 
     function onTTSEnd() {
-      saveAudioTest()
       finalizeMediaSource()
     }
-
-    function saveAudioTest() {
-      if (mediaQueue.length === 0) {
-        console.warn("No audio data to save");
-        return;
-      }
-      const blob = new Blob(mediaQueue, { type: 'audio/mpeg' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'tts_test.mp3';
-      a.click();
-    }
-
 
     // 音频主入口
     async function startCall() {
