@@ -58,6 +58,14 @@ createApp({
 
     const DOWNSTREAM_MIME = 'audio/mpeg'
 
+    function base64ToArrayBuffer(base64) {
+      const binary = atob(base64)
+      const len = binary.length
+      const bytes = new Uint8Array(len)
+      for (let i = 0; i < len; i++) bytes[i] = binary.charCodeAt(i)
+      return bytes.buffer
+    }
+
     function scrollToBottom() {
       nextTick(() => {
         if (historyEl.value) {
@@ -141,7 +149,6 @@ createApp({
       scrollToBottom()
     }
 
-    const NS100_TO_SEC = 1 / 10_000_000
     const pendingBoundaries = new AsyncQueue();
 
     async function waitUntil(timeSec) {
@@ -152,13 +159,11 @@ createApp({
 
     (async () => {
       while (true) {
-        const msg = await pendingBoundaries.dequeue();  // 等待新消息
-        const offsetSec = msg.offset * NS100_TO_SEC;
-
-        await waitUntil(offsetSec); // 等待到 offsetSec 再继续
+        const msg = await pendingBoundaries.dequeue();
+        await waitUntil(msg.offset_sec);
         const m = history.value[speakingIndex.value];
         if (m) {
-          m.text += msg.delta_text;
+          m.text += msg.text;
           history.value = [...history.value];
           scrollToBottom()
         }
@@ -196,27 +201,46 @@ createApp({
       ws.onerror = (e) => { error.value = (lang.value === 'zh' ? 'WebSocket错误' : 'WebSocket error'); console.error(e) }
 
       ws.onmessage = (e) => {
-        if (typeof e.data === 'string') {
-          const msg = JSON.parse(e.data)
-          if (msg.type === 'asr_text') {
+        if (typeof e.data !== 'string') return
+        const msg = JSON.parse(e.data)
+        switch (msg.type) {
+          case 'asr_text':
             history.value.push({ role: 'user', text: msg.data })
             listening.value = false
             scrollToBottom()
-          } else if (msg.type === 'llm_reply') {
-            history.value.push({ role: 'bot', text: msg.data })
+            break
+          case 'llm_begin':
+            history.value.push({ role: 'bot', text: '' })
             speakingIndex.value = history.value.length - 1
             listening.value = false
             scrollToBottom()
-          } else if (msg.type === 'tts_begin') {
-            onTTSBegin()
-          } else if (msg.type === 'word_boundary') {
-            //onWordBoundary(msg)
-          } else if (msg.type === 'tts_end') {
-            console.log("onTTSEnd start")
-            onTTSEnd()
+            break
+          case 'llm_delta': {
+            const m = history.value[speakingIndex.value]
+            if (m) {
+              m.text += msg.data
+              history.value = [...history.value]
+              scrollToBottom()
+            }
+            break
           }
-        } else {
-          playTTSChunk(e.data)
+          case 'llm_end':
+            break
+          case 'tts_begin':
+            onTTSBegin()
+            break
+          case 'tts_audio':
+            playTTSChunk(base64ToArrayBuffer(msg.data))
+            break
+          case 'tts_boundary':
+            onWordBoundary(msg)
+            break
+          case 'tts_end':
+            onTTSEnd()
+            break
+          case 'error':
+            error.value = msg.data
+            break
         }
       }
 
