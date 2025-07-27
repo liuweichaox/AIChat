@@ -37,6 +37,12 @@
           <option value="zh">中文</option>
           <option value="en">English</option>
         </select>
+        <!-- 语音角色选择 -->
+        <select v-model="voice" class="voice-selector" @change="onVoiceChange" :title="lang==='zh' ? '语音角色' : 'Voice'">
+          <option v-for="v in voices" :key="v.ShortName" :value="v.ShortName">
+            {{ v.FriendlyName || v.ShortName }}
+          </option>
+        </select>
       </div>
     </div>
 
@@ -46,13 +52,8 @@
       </div>
 
       <div class="history article" ref="historyEl">
-        <div v-for="(msg, idx) in history" :key="idx" :class="['message', msg.role]">
-          <template v-if="msg.role === 'bot'">
-            {{ msg.text }}
-          </template>
-          <template v-else>
-            {{ msg.text }}
-          </template>
+        <div v-for="(msg, idx) in history" :key="idx" :class="['message', msg.role, { playing: idx === speakingIndex }]">
+          <div v-html="marked.parse(msg.text)"></div>
         </div>
       </div>
     </div>
