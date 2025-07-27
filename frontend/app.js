@@ -63,30 +63,42 @@ createApp({
       })
     }
 
-    // 下行播放
     function resetMediaSourceForNewUtterance() {
+
+      if (mediaSource && mediaSource.readyState === 'open') {
+        try { mediaSource.endOfStream() } catch (e) { console.warn(e) }
+      }
+
       mediaSource = new MediaSource()
       audioEl = new Audio()
       audioEl.autoplay = true
       audioEl.muted = ttsMuted.value
       audioEl.src = URL.createObjectURL(mediaSource)
+
       audioEl.onended = () => {
-        speakingIndex.value = -1;     // 这里重置
-        pendingBoundaries.queue = []; // 清空未消费的字幕数据（如果有）
+        speakingIndex.value = -1
+        pendingBoundaries.queue = []
         if (ws && ws.readyState === WebSocket.OPEN && !listening.value) {
           ws.send(JSON.stringify({ type: 'resume' }))
           listening.value = true
         }
-
       }
+
       mediaQueue = []
+      sourceBuffer = null
+
       mediaSource.addEventListener('sourceopen', () => {
-        sourceBuffer = mediaSource.addSourceBuffer(DOWNSTREAM_MIME)
-        sourceBuffer.mode = 'sequence'
-        sourceBuffer.addEventListener('updateend', appendNextChunk)
-        appendNextChunk()
-      })
+        try {
+          sourceBuffer = mediaSource.addSourceBuffer(DOWNSTREAM_MIME)
+          sourceBuffer.mode = 'sequence'
+          sourceBuffer.addEventListener('updateend', appendNextChunk)
+          appendNextChunk() // 立即尝试消耗队列
+        } catch (e) {
+          console.error('[MediaSource] addSourceBuffer error:', e)
+        }
+      }, { once: true })
     }
+
     function finalizeMediaSource() {
       if (!mediaSource || mediaSource.readyState !== "open" || listening.value)
         return
@@ -106,10 +118,12 @@ createApp({
     }
 
     function playTTSChunk(chunk) {
-      if (!chunk || chunk.byteLength === 0) return;
-      if (!mediaSource) resetMediaSourceForNewUtterance();
-      mediaQueue.push(new Uint8Array(chunk));
-      if (sourceBuffer && !sourceBuffer.updating) appendNextChunk();
+      if (!chunk || chunk.byteLength === 0) return
+      if (!mediaSource) resetMediaSourceForNewUtterance()
+      mediaQueue.push(new Uint8Array(chunk))
+      if (sourceBuffer && !sourceBuffer.updating) {
+        appendNextChunk()
+      }
     }
 
     // 发送文本
