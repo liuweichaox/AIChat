@@ -1,4 +1,4 @@
-import { createApp, ref, nextTick, onMounted } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
+import { createApp, ref, nextTick, onMounted, onUnmounted } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
 
 // marked is loaded globally via a script tag in index.html
 const { marked } = window
@@ -346,10 +346,21 @@ createApp({
     }
     async function toggleVideo() { if (videoEnabled.value) stopVideo(); else await startVideo() }
 
+    function handleVisibilityChange() {
+      if (document.hidden) stopCall()
+    }
+
     onMounted(async () => {
-      startCall()
       const resp = await fetch('/api/voices')
       voices.value = await resp.json()
+
+      window.addEventListener('beforeunload', stopCall)
+      document.addEventListener('visibilitychange', handleVisibilityChange)
+    })
+
+    onUnmounted(() => {
+      window.removeEventListener('beforeunload', stopCall)
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
     })
 
     return {
