@@ -54,7 +54,7 @@
       <div class="history article" ref="historyEl">
         <div v-for="(msg, idx) in history" :key="idx"
           :class="['message', msg.role, { playing: idx === speakingIndex }]">
-          <div v-html="renderMarkdown(msg.text)"></div>
+          <div v-html="marked.parse(msg.text)"></div>
         </div>
       </div>
     </div>
