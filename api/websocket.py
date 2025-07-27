@@ -45,6 +45,7 @@ async def stream_tts(websocket: WebSocket, text: str, voice: str):
                     "spoken_text": spoken_text
                 }))
     await websocket.send_text(json.dumps({"type": "tts_end"}))
+    print("await websocket.send_text(json.dumps(type: tts_end))")
 
 
 @router.websocket("/audio")
