@@ -47,7 +47,6 @@ async def stream_tts(websocket: WebSocket, text: str, voice: str):
     if last_pos < len(text):
         remaining_text = text[last_pos:]
         spoken_text += remaining_text
-        print(remaining_text)
         await websocket.send_text(json.dumps({
             "type": "word_boundary",
             "offset": len(text),  # 或者适当的偏移量
