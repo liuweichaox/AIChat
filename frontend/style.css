@@ -70,14 +70,19 @@ body {
   overflow-y: auto;
   margin: 2em auto;
   width: 80%;
-  /* 居中并占 80% */
+  /* 占 80% 宽度 */
   max-width: 900px;
   background: none;
-  /* 去掉背景 */
   padding: 0;
   box-shadow: none;
   font-size: 1.05em;
   line-height: 1.7;
+  white-space: normal;
+  /* 允许正常换行 */
+  word-break: break-word;
+  /* 避免长单词撑开容器 */
+  overflow-wrap: break-word;
+  /* 标准换行写法 */
 }
 
 .history img {
@@ -92,9 +97,12 @@ body {
   display: block;
   width: 100%;
   padding: 0.5em 0;
-  margin-bottom: 1.5em;
   border: none;
   background: none;
+  white-space: normal;
+  /* 确保自动换行 */
+  word-break: break-word;
+  overflow-wrap: break-word;
 }
 
 .message.user {
@@ -104,6 +112,28 @@ body {
 
 .message.bot {
   color: #333;
+}
+
+/* 处理 Markdown 段落、代码块 */
+.message p,
+.message span,
+.message div {
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: break-word;
+  margin: 0 0 0.6em 0;
+}
+
+.message pre,
+.message code {
+  background: #f5f5f5;
+  border-radius: 4px;
+  padding: 0.4em 0.6em;
+  white-space: pre-wrap;
+  /* 保留换行，但允许自动换行 */
+  word-break: break-word;
+  overflow-wrap: break-word;
+  font-family: Consolas, "Courier New", monospace;
 }
 
 /* 聊天输入栏 */
