@@ -4,6 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <title>语音助手 / Voice Assistant</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
   <link rel="stylesheet" href="/static/style.css" />
   <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <script type="module" src="https://unpkg.com/vue@3/dist/vue.esm-browser.js"></script>
@@ -13,7 +14,7 @@
 <body>
   <div id="app">
     <div class="header-bar">
-      <span class="title">{{ lang === 'zh' ? '语音助手' : 'Voice Assistant' }}</span>
+      <span class="title"></span>
       <div style="display: flex; align-items: center;">
         <!-- TTS 音量控制 -->
         <button class="icon-btn" @click="toggleTTS"
