@@ -1,5 +1,8 @@
 import { createApp, ref, nextTick, onMounted } from 'https://unpkg.com/vue@3/dist/vue.esm-browser.js'
 
+// marked is loaded globally via a script tag in index.html
+const { marked } = window
+
 class AsyncQueue {
   constructor() {
     this.queue = [];
@@ -319,10 +322,6 @@ createApp({
     }
     async function toggleVideo() { if (videoEnabled.value) stopVideo(); else await startVideo() }
 
-    function renderMarkdown(text) {
-      return marked.parse(text || '');
-    }
-
     onMounted(async () => {
       startCall()
       const resp = await fetch('/api/voices')
@@ -333,7 +332,8 @@ createApp({
       lang, userInput, history, recording, listening, typing, error,
       toggleMic, toggleTTS, onSendText, onVoiceChange,
       historyEl, ttsMuted, localVideo, remoteVideo, videoEnabled, toggleVideo,
-      voices, voice, speakingIndex, renderMarkdown
+      voices, voice, speakingIndex,
+      marked
     }
   }
 }).mount('#app')
