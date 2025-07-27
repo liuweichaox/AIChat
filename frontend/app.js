@@ -104,11 +104,12 @@ createApp({
         sourceBuffer.appendBuffer(mediaQueue.shift())
       }
     }
+
     function playTTSChunk(chunk) {
-      if (!chunk || chunk.byteLength === 0) return
-      if (!mediaSource) resetMediaSourceForNewUtterance()
-      mediaQueue.push(new Uint8Array(chunk))
-      appendNextChunk()
+      if (!chunk || chunk.byteLength === 0) return;
+      if (!mediaSource) resetMediaSourceForNewUtterance();
+      mediaQueue.push(new Uint8Array(chunk));
+      if (sourceBuffer && !sourceBuffer.updating) appendNextChunk();
     }
 
     // 发送文本
