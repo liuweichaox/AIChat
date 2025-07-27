@@ -90,9 +90,15 @@ createApp({
       })
     }
     function finalizeMediaSource() {
-      if (mediaSource && mediaSource.readyState === "open" && !listening.value) {
-        try { mediaSource.endOfStream() } catch (e) { }
+      if (!mediaSource || mediaSource.readyState !== "open" || listening.value)
+        return
+      if (sourceBuffer && (sourceBuffer.updating || mediaQueue.length > 0)) {
+        sourceBuffer.addEventListener('updateend', finalizeMediaSource, {
+          once: true
+        })
+        return
       }
+      try { mediaSource.endOfStream() } catch (e) { }
     }
     function appendNextChunk() {
       if (!sourceBuffer || sourceBuffer.updating) return
